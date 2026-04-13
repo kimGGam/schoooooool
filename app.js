@@ -119,6 +119,7 @@ function updateUserInfo() {
   const el = document.getElementById('userInfo');
   if (currentUser) {
     el.innerHTML = `<span class="user-name">${currentUser.name} <small>(${currentUser.userId})</small></span>
+      <button class="settings-btn" onclick="openProfileModal()" title="개인정보 변경">⚙️</button>
       <button class="logout-btn" onclick="logout()">로그아웃</button>`;
   } else {
     el.innerHTML = '';
@@ -127,6 +128,51 @@ function updateUserInfo() {
   if (badge && currentUser) {
     badge.innerHTML = `<div class="user-badge">👤 ${currentUser.name} <span>(${currentUser.userId})</span></div>`;
   }
+}
+
+// ─────────────────────────────────────────────
+//  개인정보 변경
+// ─────────────────────────────────────────────
+
+function openProfileModal() {
+  if (!currentUser) return;
+  document.getElementById('profileName').value      = currentUser.name;
+  document.getElementById('profileCurrentPw').value = '';
+  document.getElementById('profileNewPw').value     = '';
+  document.getElementById('profileConfirmPw').value = '';
+  document.getElementById('profileModal').style.display = 'flex';
+}
+
+function closeProfileModal() {
+  document.getElementById('profileModal').style.display = 'none';
+}
+
+async function doChangeProfile() {
+  if (!currentUser) return;
+  const name      = document.getElementById('profileName').value.trim();
+  const currentPw = document.getElementById('profileCurrentPw').value;
+  const newPw     = document.getElementById('profileNewPw').value;
+  const confirmPw = document.getElementById('profileConfirmPw').value;
+
+  if (!name)      { alert('이름을 입력해주세요.'); return; }
+  if (!currentPw) { alert('현재 비밀번호를 입력해주세요.'); return; }
+  if (newPw && newPw.length < 4) { alert('새 비밀번호는 4자 이상 입력해주세요.'); return; }
+  if (newPw && newPw !== confirmPw) { alert('새 비밀번호가 일치하지 않습니다.'); return; }
+
+  try {
+    const res  = await fetch('/api/change-profile', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ userId: currentUser.userId, currentPassword: currentPw, newPassword: newPw || null, name }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error); return; }
+
+    saveSession({ userId: data.userId, name: data.name });
+    updateUserInfo();
+    closeProfileModal();
+    loadHomeDashboard();
+    alert('변경되었습니다.');
+  } catch(e) { alert('서버에 연결할 수 없습니다.'); }
 }
 
 // ─────────────────────────────────────────────
@@ -154,25 +200,73 @@ function renderMonthSchedule() {
   const card = document.getElementById('scheduleMonthCard');
   if (!card) return;
 
-  const month = new Date().getMonth() + 1;
-  const monthNames = ['','1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-  const events = ACADEMIC_SCHEDULE.filter(e => e.month === month);
+  const now   = new Date();
+  const year  = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const todayDay   = now.getDate();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const MONTH_NAMES = ['','1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+  // 날짜별 이벤트 매핑
+  const dayEvents = {};
+  ACADEMIC_SCHEDULE.forEach(e => {
+    const parts = e.date.split('~');
+    if (parts.length === 1) {
+      const [m, d] = parts[0].split('/').map(Number);
+      if (m === month) {
+        if (!dayEvents[d]) dayEvents[d] = [];
+        dayEvents[d].push(e);
+      }
+    } else {
+      const [sm, sd] = parts[0].split('/').map(Number);
+      const [em, ed] = parts[1].split('/').map(Number);
+      const startYear = year;
+      const endYear   = em < sm ? year + 1 : year;
+      const startDate = new Date(startYear, sm - 1, sd);
+      const endDate   = new Date(endYear,   em - 1, ed);
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(year, month - 1, day);
+        if (d >= startDate && d <= endDate) {
+          if (!dayEvents[day]) dayEvents[day] = [];
+          // 같은 이벤트 중복 방지
+          if (!dayEvents[day].find(x => x.event === e.event)) dayEvents[day].push(e);
+        }
+      }
+    }
+  });
+
+  // 첫째 날 요일 (월요일 기준 offset)
+  const firstDow = new Date(year, month - 1, 1).getDay();
+  const offset   = firstDow === 0 ? 6 : firstDow - 1;
+  const DAY_LABELS = ['월','화','수','목','금','토','일'];
+
+  let calHtml = `<div class="cal-grid">
+    ${DAY_LABELS.map(l => `<div class="cal-day-label">${l}</div>`).join('')}`;
+
+  for (let i = 0; i < offset; i++) calHtml += `<div class="cal-cell empty"></div>`;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dow    = (offset + day - 1) % 7;
+    const isToday = day === todayDay;
+    const events = dayEvents[day] || [];
+    let cls = 'cal-cell';
+    if (isToday) cls += ' today';
+    if (dow === 5) cls += ' sat';
+    if (dow === 6) cls += ' sun';
+
+    calHtml += `<div class="${cls}">
+      <span class="cal-day-num">${day}</span>
+      ${events.map(e => `<span class="cal-event ${e.type}" title="${e.event}">${e.event}</span>`).join('')}
+    </div>`;
+  }
+  calHtml += `</div>`;
 
   card.innerHTML = `
     <div class="sch-month-header">
       <span class="sch-month-icon">📅</span>
-      <span class="sch-month-title">${monthNames[month]} 학사일정</span>
+      <span class="sch-month-title">${year}년 ${MONTH_NAMES[month]}</span>
     </div>
-    ${events.length > 0
-      ? `<ul class="schedule-list">
-          ${events.map(e => `
-            <li>
-              <span class="sch-date${e.type === 'exam' ? ' exam' : e.type === 'vacation' ? ' vacation' : ''}">${e.date}</span>
-              <span class="sch-event${e.type === 'exam' ? ' exam' : e.type === 'vacation' ? ' vacation' : ''}">${e.event}</span>
-            </li>`).join('')}
-        </ul>`
-      : '<p class="sch-empty">이번 달 학사 일정이 없습니다.</p>'
-    }`;
+    ${calHtml}`;
 }
 
 async function loadHomeDashboard() {
@@ -331,12 +425,27 @@ function getSelectedSlot() {
 
 let selectedSeatType = 'single';
 let selectedSeatId   = null;
+let selectedFloor    = '3';
+
+function selectFloor(btn) {
+  document.querySelectorAll('.floor-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedFloor  = btn.dataset.floor;
+  selectedSeatId = null;
+  renderSeatMap();
+}
 
 function initReservePage() {
   viewDateStr     = todayStr;
   weekOffset      = 0;
   selectedSlotIdx = null;
   selectedSeatId  = null;
+  selectedFloor   = '3';
+
+  // 층 버튼 초기화
+  document.querySelectorAll('.floor-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.floor === '3');
+  });
 
   renderWeekView();
   renderTimeSlots();
@@ -434,10 +543,12 @@ async function renderSeatMap() {
 
   const isToday = viewDateStr === todayStr;
 
+  // seatId 형식: '{floor}f-{type}-{num}'  예) '3f-single-1', '4f-quad-2'
   function seatBtn(seatId, large = false) {
-    const type   = seatId.split('-')[0];
-    const num    = seatId.split('-')[1];
-    const cfg    = SEAT_CONFIG[type];
+    const parts = seatId.split('-');
+    const type  = parts[1];   // 'single' | 'triple' | 'quad'
+    const num   = parts[2];   // '1', '2', ...
+    const cfg   = SEAT_CONFIG[type];
     const isActive   = type === selectedSeatType;
     const data       = reservedMap[seatId];
     const isReserved = !!data;
@@ -445,18 +556,17 @@ async function renderSeatMap() {
     const isTable    = type !== 'single';
 
     let cls = 'seat-btn';
-    if (large)       cls += ' large';
-    if (isTable)     cls += ' table-seat';
-    if (!isActive)   cls += ' other-type';
-    else if (isReserved) cls += ' reserved';
-    else if (isSelected) cls += ' selected';
-    else             cls += ' available';
+    if (large)            cls += ' large';
+    if (isTable)          cls += ' table-seat';
+    if (!isActive)        cls += ' other-type';
+    else if (isReserved)  cls += ' reserved';
+    else if (isSelected)  cls += ' selected';
+    else                  cls += ' available';
 
     const clickable = isActive && !isReserved && isToday;
 
     let inner;
     if (isReserved) {
-      // 예약된 좌석에 아이디 표시
       const ids = data.memberIds.length > 0 ? data.memberIds : [data.userId];
       if (isTable) {
         inner = ids.map(id => `<span class="id-chip">${id}</span>`).join('');
@@ -471,26 +581,27 @@ async function renderSeatMap() {
 
     return `<button class="${cls}"
       ${clickable ? `onclick="selectSeat('${seatId}')"` : 'disabled'}
-      title="${cfg.label} ${num}번">
+      title="${selectedFloor}층 ${cfg.label} ${num}번">
       ${inner}
     </button>`;
   }
 
-  let html = '';
+  const f   = selectedFloor + 'f';
+  let html  = '';
 
   // 개별 배치 좌석
   const solo = [
-    { id:'quad-1',   col:1,  row:1, large:false },
-    { id:'single-1', col:2,  row:1, large:true  },
-    { id:'single-2', col:3,  row:1, large:true  },
-    { id:'single-3', col:4,  row:1, large:true  },
-    { id:'single-4', col:5,  row:1, large:true  },
-    { id:'single-5', col:6,  row:1, large:true  },
-    { id:'single-6', col:7,  row:1, large:true  },
-    { id:'single-7', col:8,  row:1, large:true  },
-    { id:'triple-1', col:10, row:1, large:false },
-    { id:'quad-2',   col:1,  row:3, large:false },
-    { id:'triple-2', col:10, row:3, large:false },
+    { id:`${f}-quad-1`,   col:1,  row:1, large:false },
+    { id:`${f}-single-1`, col:2,  row:1, large:true  },
+    { id:`${f}-single-2`, col:3,  row:1, large:true  },
+    { id:`${f}-single-3`, col:4,  row:1, large:true  },
+    { id:`${f}-single-4`, col:5,  row:1, large:true  },
+    { id:`${f}-single-5`, col:6,  row:1, large:true  },
+    { id:`${f}-single-6`, col:7,  row:1, large:true  },
+    { id:`${f}-single-7`, col:8,  row:1, large:true  },
+    { id:`${f}-triple-1`, col:10, row:1, large:false },
+    { id:`${f}-quad-2`,   col:1,  row:3, large:false },
+    { id:`${f}-triple-2`, col:10, row:3, large:false },
   ];
   solo.forEach(({ id, col, row, large }) => {
     html += `<div style="grid-column:${col};grid-row:${row}">${seatBtn(id, large)}</div>`;
@@ -498,14 +609,14 @@ async function renderSeatMap() {
 
   // 왼쪽 그룹 박스: 8,9,12,13
   html += `<div class="seat-group-box" style="grid-column:3/5;grid-row:2/4">
-    ${seatBtn('single-8')}${seatBtn('single-9')}
-    ${seatBtn('single-12')}${seatBtn('single-13')}
+    ${seatBtn(`${f}-single-8`)}${seatBtn(`${f}-single-9`)}
+    ${seatBtn(`${f}-single-12`)}${seatBtn(`${f}-single-13`)}
   </div>`;
 
   // 오른쪽 그룹 박스: 10,11,14,15
   html += `<div class="seat-group-box" style="grid-column:6/8;grid-row:2/4">
-    ${seatBtn('single-10')}${seatBtn('single-11')}
-    ${seatBtn('single-14')}${seatBtn('single-15')}
+    ${seatBtn(`${f}-single-10`)}${seatBtn(`${f}-single-11`)}
+    ${seatBtn(`${f}-single-14`)}${seatBtn(`${f}-single-15`)}
   </div>`;
 
   map.innerHTML = html;
@@ -570,8 +681,10 @@ async function confirmReservation() {
   const slot = getSelectedSlot();
   if (!slot) { alert('시간대를 선택해주세요.'); return; }
 
-  const cfg     = SEAT_CONFIG[selectedSeatType];
-  const seatNum = selectedSeatId.split('-')[1];
+  const cfg      = SEAT_CONFIG[selectedSeatType];
+  const seatParts = selectedSeatId.split('-');
+  const seatNum   = seatParts[2];   // '1'~'15'
+  const floorNum  = seatParts[0];   // '3f' | '4f'
   let peopleCount = 1;
   let memberIds   = [];
 
@@ -591,7 +704,7 @@ async function confirmReservation() {
         userId: currentUser.userId, name: currentUser.name,
         date: viewDateStr, startTime: slot.start, endTime: slot.end,
         seatType: selectedSeatType, seatTypeLabel: cfg.label,
-        seatId: selectedSeatId, seatLabel: `${seatNum}번`,
+        seatId: selectedSeatId, seatLabel: `${selectedFloor}층 ${seatNum}번`,
         peopleCount, memberIds,
       }),
     });
@@ -606,7 +719,7 @@ async function confirmReservation() {
       <strong>예약자</strong> ${currentUser.name} (${currentUser.userId})<br/>
       <strong>날짜</strong> ${formatDate(viewDateStr)}<br/>
       <strong>시간</strong> ${slot.label} ${slot.range}<br/>
-      <strong>좌석</strong> ${cfg.label} ${seatNum}번${peopleText}
+      <strong>좌석</strong> ${selectedFloor}층 ${cfg.label} ${seatNum}번${peopleText}
     `;
     document.getElementById('modal').style.display = 'flex';
     selectedSeatId = null;

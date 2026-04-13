@@ -56,6 +56,26 @@ app.post('/api/setup-profile', (req, res) => {
   return res.json({ userId: id, name: name.trim() });
 });
 
+// ── 프로필 변경 ──
+app.post('/api/change-profile', (req, res) => {
+  const { userId, currentPassword, newPassword, name } = req.body;
+  const id = String(userId);
+  if (!name || !name.trim())
+    return res.status(400).json({ error: '이름을 입력해주세요.' });
+
+  const users = readUsers();
+  if (!users[id]) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+  if (users[id].password !== currentPassword)
+    return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다.' });
+  if (newPassword && newPassword.length < 4)
+    return res.status(400).json({ error: '새 비밀번호는 4자 이상이어야 합니다.' });
+
+  users[id].name = name.trim();
+  if (newPassword) users[id].password = newPassword;
+  writeUsers(users);
+  return res.json({ userId: id, name: users[id].name });
+});
+
 // ── 예약 조회 ──
 app.get('/api/reservations', (req, res) => {
   let list = readDB();

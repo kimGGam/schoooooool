@@ -138,6 +138,14 @@
             <div class="user-badge-wrap" id="userBadge"></div>
 
             <div class="form-group">
+              <label>층 선택</label>
+              <div id="floorBtns" class="floor-btns">
+                <button class="floor-btn active" data-floor="3" onclick="selectFloor(this)">3층</button>
+                <button class="floor-btn" data-floor="4" onclick="selectFloor(this)">4층</button>
+              </div>
+            </div>
+
+            <div class="form-group">
               <label>시간대</label>
               <div id="timeSlotBtns" class="time-slot-btns"></div>
             </div>
@@ -212,6 +220,34 @@
     <div class="page-container">
       <h2 class="page-title">예약 순위</h2>
       <div id="rankingContent"></div>
+    </div>
+  </div>
+
+  <!-- 개인정보 변경 모달 -->
+  <div id="profileModal" class="modal-overlay" style="display:none">
+    <div class="modal">
+      <div class="modal-icon">⚙️</div>
+      <h3>개인정보 변경</h3>
+      <div class="form-group">
+        <label>이름</label>
+        <input type="text" id="profileName" placeholder="이름 입력" />
+      </div>
+      <div class="form-group">
+        <label>현재 비밀번호</label>
+        <input type="password" id="profileCurrentPw" placeholder="현재 비밀번호" />
+      </div>
+      <div class="form-group">
+        <label>새 비밀번호 <small>(변경 시에만 입력)</small></label>
+        <input type="password" id="profileNewPw" placeholder="변경 안 하면 비워두세요" />
+      </div>
+      <div class="form-group">
+        <label>새 비밀번호 확인</label>
+        <input type="password" id="profileConfirmPw" placeholder="새 비밀번호 확인" />
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn-secondary full-width" onclick="closeProfileModal()">취소</button>
+        <button class="btn-primary full-width" onclick="doChangeProfile()">변경 완료</button>
+      </div>
     </div>
   </div>
 
