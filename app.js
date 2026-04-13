@@ -363,7 +363,7 @@ async function loadHomeDashboard() {
 function toDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-const todayStr = toDateStr(new Date());
+let todayStr = toDateStr(new Date());
 let viewDateStr = todayStr;
 let weekOffset  = 0;
 
@@ -453,6 +453,7 @@ function selectFloor(btn) {
 }
 
 function initReservePage() {
+  todayStr        = toDateStr(new Date());
   viewDateStr     = todayStr;
   weekOffset      = 0;
   selectedSlots  = new Set([0]);
