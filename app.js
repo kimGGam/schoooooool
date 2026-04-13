@@ -609,14 +609,14 @@ async function renderSeatMap() {
     html += `<div style="grid-column:${col};grid-row:${rowVal}">${seatBtn(id)}</div>`;
   });
 
-  // 왼쪽 그룹 박스: 8,9,12,13  (row 2~4, 3행 span)
-  html += `<div class="seat-group-box" style="grid-column:3/5;grid-row:2/5">
+  // 왼쪽 그룹 박스: 8,9,12,13  — 원래 2행, 열은 3/6으로 넓힘
+  html += `<div class="seat-group-box" style="grid-column:3/6;grid-row:2/4">
     ${seatBtn(`${f}-single-8`)}${seatBtn(`${f}-single-9`)}
     ${seatBtn(`${f}-single-12`)}${seatBtn(`${f}-single-13`)}
   </div>`;
 
-  // 오른쪽 그룹 박스: 10,11,14,15  (row 2~4, 3행 span)
-  html += `<div class="seat-group-box" style="grid-column:6/8;grid-row:2/5">
+  // 오른쪽 그룹 박스: 10,11,14,15  — 원래 2행, 열은 6/9로 넓힘
+  html += `<div class="seat-group-box" style="grid-column:6/9;grid-row:2/4">
     ${seatBtn(`${f}-single-10`)}${seatBtn(`${f}-single-11`)}
     ${seatBtn(`${f}-single-14`)}${seatBtn(`${f}-single-15`)}
   </div>`;
