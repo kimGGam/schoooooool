@@ -1123,6 +1123,13 @@ nav {
   background: none;
   border-color: transparent;
 }
+.cal-cell.other-month {
+  background: none;
+  border-color: transparent;
+}
+.cal-cell.other-month .cal-day-num {
+  color: #d1d5db;
+}
 .cal-cell.today {
   background: var(--primary-light);
   border-color: var(--primary);

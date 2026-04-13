@@ -243,7 +243,16 @@ function renderMonthSchedule() {
   let calHtml = `<div class="cal-grid">
     ${DAY_LABELS.map(l => `<div class="cal-day-label">${l}</div>`).join('')}`;
 
-  for (let i = 0; i < offset; i++) calHtml += `<div class="cal-cell empty"></div>`;
+  // 이전달 날짜로 앞쪽 빈 칸 채우기
+  const prevMonthDays = new Date(year, month - 1, 0).getDate();
+  for (let i = 0; i < offset; i++) {
+    const d = prevMonthDays - offset + 1 + i;
+    const dow = i;
+    let cls = 'cal-cell other-month';
+    if (dow === 5) cls += ' sat';
+    if (dow === 6) cls += ' sun';
+    calHtml += `<div class="${cls}"><span class="cal-day-num">${d}</span></div>`;
+  }
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dow    = (offset + day - 1) % 7;
@@ -259,6 +268,18 @@ function renderMonthSchedule() {
       ${events.map(e => `<span class="cal-event ${e.type}" title="${e.event}">${e.event}</span>`).join('')}
     </div>`;
   }
+
+  // 다음달 날짜로 뒤쪽 빈 칸 채우기
+  const totalCells = offset + daysInMonth;
+  const trailing = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (let i = 1; i <= trailing; i++) {
+    const dow = (totalCells + i - 1) % 7;
+    let cls = 'cal-cell other-month';
+    if (dow === 5) cls += ' sat';
+    if (dow === 6) cls += ' sun';
+    calHtml += `<div class="${cls}"><span class="cal-day-num">${i}</span></div>`;
+  }
+
   calHtml += `</div>`;
 
   card.innerHTML = `
