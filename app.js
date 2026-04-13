@@ -456,7 +456,7 @@ function selectFloor(btn) {
 function initReservePage() {
   viewDateStr     = todayStr;
   weekOffset      = 0;
-  selectedSlots  = new Set();
+  selectedSlots  = new Set([0]);
   selectedSeatId = null;
   selectedFloor   = '3';
 
