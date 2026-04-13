@@ -601,22 +601,22 @@ async function renderSeatMap() {
     { id:`${f}-single-6`, col:7,  row:1 },
     { id:`${f}-single-7`, col:8,  row:1 },
     { id:`${f}-triple-1`, col:10, row:1, rowEnd:3 },
-    { id:`${f}-quad-2`,   col:1,  row:3 },
-    { id:`${f}-triple-2`, col:10, row:3 },
+    { id:`${f}-quad-2`,   col:1,  row:3, rowEnd:5 },
+    { id:`${f}-triple-2`, col:10, row:3, rowEnd:5 },
   ];
   solo.forEach(({ id, col, row, rowEnd }) => {
     const rowVal = rowEnd ? `${row}/${rowEnd}` : row;
     html += `<div style="grid-column:${col};grid-row:${rowVal}">${seatBtn(id)}</div>`;
   });
 
-  // 왼쪽 그룹 박스: 8,9,12,13
-  html += `<div class="seat-group-box" style="grid-column:3/5;grid-row:2/4">
+  // 왼쪽 그룹 박스: 8,9,12,13  (row 2~4, 3행 span)
+  html += `<div class="seat-group-box" style="grid-column:3/5;grid-row:2/5">
     ${seatBtn(`${f}-single-8`)}${seatBtn(`${f}-single-9`)}
     ${seatBtn(`${f}-single-12`)}${seatBtn(`${f}-single-13`)}
   </div>`;
 
-  // 오른쪽 그룹 박스: 10,11,14,15
-  html += `<div class="seat-group-box" style="grid-column:6/8;grid-row:2/4">
+  // 오른쪽 그룹 박스: 10,11,14,15  (row 2~4, 3행 span)
+  html += `<div class="seat-group-box" style="grid-column:6/8;grid-row:2/5">
     ${seatBtn(`${f}-single-10`)}${seatBtn(`${f}-single-11`)}
     ${seatBtn(`${f}-single-14`)}${seatBtn(`${f}-single-15`)}
   </div>`;

@@ -297,7 +297,7 @@ nav {
 
 .reserve-layout {
   display: grid;
-  grid-template-columns: 380px 1fr;
+  grid-template-columns: 300px 1fr;
   gap: 24px;
   align-items: start;
 }
@@ -822,8 +822,8 @@ nav {
 /* ── 그리드 배치도 ── */
 .seat-map.layout-grid {
   display: grid;
-  grid-template-columns: 2fr repeat(8, 1fr) 2fr;
-  grid-template-rows: repeat(3, 72px);
+  grid-template-columns: 2.5fr repeat(8, 1fr) 2.5fr;
+  grid-template-rows: repeat(4, 72px);
   gap: 6px;
   min-height: unset;
   padding: 8px;
@@ -842,6 +842,7 @@ nav {
   grid-template-rows: 1fr 1fr;
   gap: 5px;
   background: rgba(79,70,229,0.04);
+  align-content: stretch;
 }
 
 .seat-btn.large {
