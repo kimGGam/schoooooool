@@ -302,7 +302,7 @@ async function loadHomeDashboard() {
     const all = await res.json();
 
     const now     = new Date();
-    const nowStr  = now.toISOString().split('T')[0];
+    const nowStr  = toDateStr(now);
     const nowTime = now.toTimeString().slice(0, 5);
 
     const done = all.filter(r => {
@@ -360,13 +360,12 @@ async function loadHomeDashboard() {
 //  주간 달력
 // ─────────────────────────────────────────────
 
-const todayStr = new Date().toISOString().split('T')[0];
-let viewDateStr = todayStr;
-let weekOffset  = 0;
-
 function toDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
+const todayStr = toDateStr(new Date());
+let viewDateStr = todayStr;
+let weekOffset  = 0;
 
 function getMonday(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
