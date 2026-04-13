@@ -395,13 +395,13 @@ function nextWeek() { weekOffset++; renderWeekView(); }
 //  시간대 선택 (버튼)
 // ─────────────────────────────────────────────
 
-let selectedSlotIdx = null;
+let selectedSlots = new Set(); // 선택된 시간대 인덱스 집합
 
 function renderTimeSlots() {
   const container = document.getElementById('timeSlotBtns');
   if (!container) return;
   container.innerHTML = TIME_SLOTS.map((s, i) => `
-    <button class="time-slot-btn${selectedSlotIdx === i ? ' selected' : ''}"
+    <button class="time-slot-btn${selectedSlots.has(i) ? ' selected' : ''}"
       onclick="selectTimeSlot(${i})">
       <span class="ts-label">${s.label}</span>
       <span class="ts-range">${s.range}</span>
@@ -409,14 +409,11 @@ function renderTimeSlots() {
 }
 
 function selectTimeSlot(idx) {
-  selectedSlotIdx = idx;
+  if (selectedSlots.has(idx)) selectedSlots.delete(idx);
+  else selectedSlots.add(idx);
   selectedSeatId = null;
   renderTimeSlots();
   renderSeatMap();
-}
-
-function getSelectedSlot() {
-  return selectedSlotIdx !== null ? TIME_SLOTS[selectedSlotIdx] : null;
 }
 
 // ─────────────────────────────────────────────
@@ -438,8 +435,8 @@ function selectFloor(btn) {
 function initReservePage() {
   viewDateStr     = todayStr;
   weekOffset      = 0;
-  selectedSlotIdx = null;
-  selectedSeatId  = null;
+  selectedSlots  = new Set();
+  selectedSeatId = null;
   selectedFloor   = '3';
 
   // 층 버튼 초기화
@@ -515,10 +512,9 @@ function updateMemberFields() {
 async function renderSeatMap() {
   const map   = document.getElementById('seatMap');
   const guide = document.getElementById('seatSelectGuide');
-  const slot  = getSelectedSlot();
 
-  if (!slot) {
-    guide.textContent = '시간대를 선택하세요.';
+  if (selectedSlots.size === 0) {
+    guide.textContent = '시간대를 선택하세요. (여러 개 동시 선택 가능)';
     guide.style.display = 'block';
     map.innerHTML = ''; map.className = 'seat-map';
     return;
@@ -526,14 +522,19 @@ async function renderSeatMap() {
   guide.style.display = 'none';
 
   // reservedMap: seatId → { userId, memberIds }
+  // 선택된 시간대 중 하나라도 예약된 좌석은 예약 불가로 표시
   let reservedMap = {};
   try {
     const res = await fetch('/api/reservations');
     const all = await res.json();
     all.forEach(r => {
-      if (!r.cancelled && r.date === viewDateStr &&
-          r.startTime === slot.start && r.endTime === slot.end) {
-        reservedMap[r.seatId] = { userId: r.userId, memberIds: r.memberIds || [] };
+      if (!r.cancelled && r.date === viewDateStr) {
+        const inSelected = [...selectedSlots].some(i =>
+          TIME_SLOTS[i].start === r.startTime && TIME_SLOTS[i].end === r.endTime
+        );
+        if (inSelected) {
+          reservedMap[r.seatId] = { userId: r.userId, memberIds: r.memberIds || [] };
+        }
       }
     });
   } catch(e) {
@@ -640,16 +641,14 @@ function selectSeat(id) {
 
 function goToSeatSelect() {
   if (!currentUser) { alert('로그인이 필요합니다.'); return; }
-  const slot = getSelectedSlot();
-  if (!slot) { alert('시간대를 선택해주세요.'); return; }
+  if (selectedSlots.size === 0) { alert('시간대를 선택해주세요.'); return; }
 
   if (selectedSeatType !== 'single') {
-    const cfg    = SEAT_CONFIG[selectedSeatType];
-    const count  = parseInt(document.getElementById('peopleCount').value);
+    const cfg   = SEAT_CONFIG[selectedSeatType];
+    const count = parseInt(document.getElementById('peopleCount').value);
     if (!count || count < cfg.minPeople || count > cfg.maxPeople) {
       alert(`인원수를 ${cfg.minPeople}~${cfg.maxPeople}명으로 입력해주세요.`); return;
     }
-    // 멤버 아이디 검증
     const memberIds = collectMemberIds();
     if (!memberIds) return;
   }
@@ -677,15 +676,13 @@ function collectMemberIds() {
 }
 
 async function confirmReservation() {
-  if (!selectedSeatId) { alert('좌석을 선택해주세요.'); return; }
-  if (!currentUser)    { alert('로그인이 필요합니다.'); return; }
-  const slot = getSelectedSlot();
-  if (!slot) { alert('시간대를 선택해주세요.'); return; }
+  if (!selectedSeatId)      { alert('좌석을 선택해주세요.'); return; }
+  if (!currentUser)         { alert('로그인이 필요합니다.'); return; }
+  if (selectedSlots.size === 0) { alert('시간대를 선택해주세요.'); return; }
 
-  const cfg      = SEAT_CONFIG[selectedSeatType];
+  const cfg       = SEAT_CONFIG[selectedSeatType];
   const seatParts = selectedSeatId.split('-');
-  const seatNum   = seatParts[2];   // '1'~'15'
-  const floorNum  = seatParts[0];   // '3f' | '4f'
+  const seatNum   = seatParts[2];
   let peopleCount = 1;
   let memberIds   = [];
 
@@ -698,34 +695,51 @@ async function confirmReservation() {
     if (!memberIds) return;
   }
 
-  try {
-    const res = await fetch('/api/reservations', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        userId: currentUser.userId, name: currentUser.name,
-        date: viewDateStr, startTime: slot.start, endTime: slot.end,
-        seatType: selectedSeatType, seatTypeLabel: cfg.label,
-        seatId: selectedSeatId, seatLabel: `${selectedFloor}층 ${seatNum}번`,
-        peopleCount, memberIds,
-      }),
-    });
+  const slotsArr = [...selectedSlots].sort().map(i => TIME_SLOTS[i]);
+  const results  = [];
 
-    const data = await res.json();
-    if (res.status === 409) { alert(data.error); renderSeatMap(); return; }
-    if (!res.ok) { alert('예약에 실패했습니다.'); return; }
+  for (const slot of slotsArr) {
+    try {
+      const res  = await fetch('/api/reservations', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          userId: currentUser.userId, name: currentUser.name,
+          date: viewDateStr, startTime: slot.start, endTime: slot.end,
+          seatType: selectedSeatType, seatTypeLabel: cfg.label,
+          seatId: selectedSeatId, seatLabel: `${selectedFloor}층 ${seatNum}번`,
+          peopleCount, memberIds,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) results.push({ slot, ok: false, error: data.error || '실패' });
+      else         results.push({ slot, ok: true });
+    } catch(e) {
+      results.push({ slot, ok: false, error: '서버 연결 오류' });
+    }
+  }
 
-    const peopleText = selectedSeatType !== 'single'
-      ? `<br/><strong>멤버</strong> ${memberIds.join(', ')}` : '';
-    document.getElementById('modalContent').innerHTML = `
-      <strong>예약자</strong> ${currentUser.name} (${currentUser.userId})<br/>
-      <strong>날짜</strong> ${formatDate(viewDateStr)}<br/>
-      <strong>시간</strong> ${slot.label} ${slot.range}<br/>
-      <strong>좌석</strong> ${selectedFloor}층 ${cfg.label} ${seatNum}번${peopleText}
-    `;
-    document.getElementById('modal').style.display = 'flex';
-    selectedSeatId = null;
-    renderSeatMap();
-  } catch(e) { alert('서버에 연결할 수 없습니다.'); }
+  const ok   = results.filter(r => r.ok);
+  const fail = results.filter(r => !r.ok);
+
+  if (ok.length === 0) {
+    alert(fail.map(r => `${r.slot.label}: ${r.error}`).join('\n'));
+    renderSeatMap(); return;
+  }
+
+  const peopleText = selectedSeatType !== 'single'
+    ? `<br/><strong>멤버</strong> ${memberIds.join(', ')}` : '';
+  const failText = fail.length > 0
+    ? `<br/><span style="color:var(--danger)">⚠️ 중복으로 실패: ${fail.map(r => r.slot.label).join(', ')}</span>` : '';
+
+  document.getElementById('modalContent').innerHTML = `
+    <strong>예약자</strong> ${currentUser.name} (${currentUser.userId})<br/>
+    <strong>날짜</strong> ${formatDate(viewDateStr)}<br/>
+    <strong>시간</strong> ${ok.map(r => r.slot.label).join(', ')}<br/>
+    <strong>좌석</strong> ${selectedFloor}층 ${cfg.label} ${seatNum}번${peopleText}${failText}
+  `;
+  document.getElementById('modal').style.display = 'flex';
+  selectedSeatId = null;
+  renderSeatMap();
 }
 
 function closeModal() { document.getElementById('modal').style.display = 'none'; }
