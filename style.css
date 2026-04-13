@@ -822,8 +822,8 @@ nav {
 /* ── 그리드 배치도 ── */
 .seat-map.layout-grid {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  grid-template-rows: 116px 68px 68px;
+  grid-template-columns: 2fr repeat(8, 1fr) 2fr;
+  grid-template-rows: repeat(3, 72px);
   gap: 6px;
   min-height: unset;
   padding: 8px;

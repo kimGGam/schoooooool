@@ -62,5 +62,24 @@
     "memberIds": [],
     "cancelled": true,
     "createdAt": "2026-04-13T05:15:35.692Z"
+  },
+  {
+    "id": "1776061742863",
+    "userId": "30614",
+    "name": "신헌제",
+    "date": "2026-04-13",
+    "startTime": "19:00",
+    "endTime": "20:20",
+    "seatType": "triple",
+    "seatTypeLabel": "3인석",
+    "seatId": "3f-triple-1",
+    "seatLabel": "3층 1번",
+    "peopleCount": 2,
+    "memberIds": [
+      "30614",
+      "30325"
+    ],
+    "cancelled": false,
+    "createdAt": "2026-04-13T06:29:02.863Z"
   }
 ]

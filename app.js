@@ -36,9 +36,9 @@ const SEAT_CONFIG = {
 };
 
 const TIME_SLOTS = [
-  { label: '1교시', range: '16:50 ~ 18:00', start: '16:50', end: '18:00' },
-  { label: '2교시', range: '19:00 ~ 20:20', start: '19:00', end: '20:20' },
-  { label: '3교시', range: '20:40 ~ 22:00', start: '20:40', end: '22:00' },
+  { label: '8교시',     range: '16:50 ~ 18:00', start: '16:50', end: '18:00' },
+  { label: '야자 1교시', range: '19:00 ~ 20:20', start: '19:00', end: '20:20' },
+  { label: '야자 2교시', range: '20:40 ~ 22:00', start: '20:40', end: '22:00' },
 ];
 
 // ─────────────────────────────────────────────
@@ -589,22 +589,23 @@ async function renderSeatMap() {
   const f   = selectedFloor + 'f';
   let html  = '';
 
-  // 개별 배치 좌석
+  // 개별 배치 좌석  (rowEnd: 범위 지정 시 grid-row: row/rowEnd)
   const solo = [
-    { id:`${f}-quad-1`,   col:1,  row:1, large:false },
-    { id:`${f}-single-1`, col:2,  row:1, large:true  },
-    { id:`${f}-single-2`, col:3,  row:1, large:true  },
-    { id:`${f}-single-3`, col:4,  row:1, large:true  },
-    { id:`${f}-single-4`, col:5,  row:1, large:true  },
-    { id:`${f}-single-5`, col:6,  row:1, large:true  },
-    { id:`${f}-single-6`, col:7,  row:1, large:true  },
-    { id:`${f}-single-7`, col:8,  row:1, large:true  },
-    { id:`${f}-triple-1`, col:10, row:1, large:false },
-    { id:`${f}-quad-2`,   col:1,  row:3, large:false },
-    { id:`${f}-triple-2`, col:10, row:3, large:false },
+    { id:`${f}-quad-1`,   col:1,  row:1, rowEnd:3 },
+    { id:`${f}-single-1`, col:2,  row:1 },
+    { id:`${f}-single-2`, col:3,  row:1 },
+    { id:`${f}-single-3`, col:4,  row:1 },
+    { id:`${f}-single-4`, col:5,  row:1 },
+    { id:`${f}-single-5`, col:6,  row:1 },
+    { id:`${f}-single-6`, col:7,  row:1 },
+    { id:`${f}-single-7`, col:8,  row:1 },
+    { id:`${f}-triple-1`, col:10, row:1, rowEnd:3 },
+    { id:`${f}-quad-2`,   col:1,  row:3 },
+    { id:`${f}-triple-2`, col:10, row:3 },
   ];
-  solo.forEach(({ id, col, row, large }) => {
-    html += `<div style="grid-column:${col};grid-row:${row}">${seatBtn(id, large)}</div>`;
+  solo.forEach(({ id, col, row, rowEnd }) => {
+    const rowVal = rowEnd ? `${row}/${rowEnd}` : row;
+    html += `<div style="grid-column:${col};grid-row:${rowVal}">${seatBtn(id)}</div>`;
   });
 
   // 왼쪽 그룹 박스: 8,9,12,13
