@@ -501,7 +501,7 @@ function updateMemberFields() {
       return `<div class="member-id-row">
         <span class="member-label">멤버 ${i+1}${isMe ? ' (나)' : ''}</span>
         <input type="number" class="member-id-input" id="memberId-${i}"
-          min="10000" max="40000" placeholder="아이디 (10000~40000)"
+          placeholder="학번 입력"
           ${isMe && currentUser ? `value="${currentUser.userId}" readonly` : ''} />
       </div>`;
     }).join('')}
@@ -667,8 +667,8 @@ function collectMemberIds() {
     if (!el) { alert('멤버 아이디를 입력해주세요.'); return null; }
     const val = el.value.trim();
     const num = parseInt(val);
-    if (!val || isNaN(num) || num < 10000 || num > 40000) {
-      alert(`멤버 ${i+1}의 아이디를 올바르게 입력해주세요. (10000~40000)`); return null;
+    if (!val || isNaN(num)) {
+      alert(`멤버 ${i+1}의 학번을 올바르게 입력해주세요.`); return null;
     }
     ids.push(String(num));
   }

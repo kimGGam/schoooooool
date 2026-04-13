@@ -21,10 +21,9 @@ app.use(express.static(__dirname));
 // ── 로그인 ──
 app.post('/api/login', (req, res) => {
   const { userId, password } = req.body;
-  const id = String(userId);
-  const num = parseInt(id);
-  if (isNaN(num) || num < 10000 || num > 40000)
-    return res.status(400).json({ error: '아이디는 10000~40000 사이여야 합니다.' });
+  const id = String(userId).trim();
+  if (!id || isNaN(parseInt(id)))
+    return res.status(400).json({ error: '학번을 올바르게 입력해주세요.' });
 
   const users = readUsers();
   if (!users[id]) {
