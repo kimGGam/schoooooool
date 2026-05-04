@@ -822,7 +822,7 @@ nav {
 /* ── 그리드 배치도 ── */
 .seat-map.layout-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr) 20px repeat(8, 1fr);
+  grid-template-columns: repeat(3, 1fr) 20px repeat(8, 1fr) 20px 2fr;
   grid-template-rows: repeat(2, 80px) 20px repeat(2, 80px);
   gap: 6px;
   min-height: unset;
@@ -838,6 +838,18 @@ nav {
   aspect-ratio: unset;
   width: 100%;
   height: 100%;
+}
+
+.room-circle {
+  background: #bfdbfe;
+  border: 2px solid #93c5fd;
+  border-radius: 50%;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 160px;
+  max-height: 160px;
+  align-self: center;
+  justify-self: center;
 }
 
 /* 그룹 박스 */

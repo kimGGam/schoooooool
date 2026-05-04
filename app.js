@@ -645,6 +645,10 @@ async function renderSeatMap() {
     html += `<div style="grid-column:${col};grid-row:${row}">${seatBtn(id)}</div>`;
   });
 
+  // 오른쪽 원형 요소 (col 14: 1-3 QUAD + 4 spacer + 5-12 seats + 13 spacer + 14 circle)
+  html += `<div class="room-circle" style="grid-column:14;grid-row:1/3"></div>`;
+  html += `<div class="room-circle" style="grid-column:14;grid-row:4/6"></div>`;
+
   map.innerHTML = html;
   map.className = 'seat-map layout-grid';
 
