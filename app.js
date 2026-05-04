@@ -632,12 +632,10 @@ async function renderSeatMap() {
     // ── 오른쪽 하단: 복합 배치 ──
     { id: `${f}-single-9`,  col: 5,       row: 4 },
     { id: `${f}-single-10`, col: 5,       row: 5 },
-    { id: `${f}-triple-1`,  col: '6/8',   row: '4/6' },  // 세로형 단체석
     { id: `${f}-single-11`, col: 8,       row: 4 },
     { id: `${f}-single-13`, col: 8,       row: 5 },
     { id: `${f}-single-12`, col: 9,       row: 4 },
     { id: `${f}-single-14`, col: 9,       row: 5 },
-    { id: `${f}-triple-2`,  col: '10/12', row: '4/6' },  // 세로형 단체석
     { id: `${f}-single-15`, col: 12,      row: 4 },
   ];
 
@@ -645,9 +643,13 @@ async function renderSeatMap() {
     html += `<div style="grid-column:${col};grid-row:${row}">${seatBtn(id)}</div>`;
   });
 
-  // 오른쪽 원형 요소 (col 14: 1-3 QUAD + 4 spacer + 5-12 seats + 13 spacer + 14 circle)
-  html += `<div class="room-circle" style="grid-column:14;grid-row:1/3"></div>`;
-  html += `<div class="room-circle" style="grid-column:14;grid-row:4/6"></div>`;
+  // 가운데 장식용 사각형 (선택 불가 시각 요소)
+  html += `<div class="deco-table" style="grid-column:6/8;grid-row:4/6"></div>`;
+  html += `<div class="deco-table" style="grid-column:10/12;grid-row:4/6"></div>`;
+
+  // 오른쪽 원형 3인석 좌석 (col 14)
+  html += `<div class="circle-seat-wrap" style="grid-column:14;grid-row:1/3">${seatBtn(`${f}-triple-1`)}</div>`;
+  html += `<div class="circle-seat-wrap" style="grid-column:14;grid-row:4/6">${seatBtn(`${f}-triple-2`)}</div>`;
 
   map.innerHTML = html;
   map.className = 'seat-map layout-grid';
