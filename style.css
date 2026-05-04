@@ -822,14 +822,22 @@ nav {
 /* ── 그리드 배치도 ── */
 .seat-map.layout-grid {
   display: grid;
-  grid-template-columns: 4fr repeat(8, 1fr) 4fr;
-  grid-template-rows: repeat(4, 72px);
+  grid-template-columns: repeat(3, 1fr) 20px repeat(8, 1fr);
+  grid-template-rows: repeat(2, 80px) 20px repeat(2, 80px);
   gap: 6px;
   min-height: unset;
-  padding: 8px;
-  background: var(--gray-50);
+  padding: 16px;
+  background:
+    radial-gradient(circle, #cbd5e1 1.2px, transparent 1.2px) 0 0 / 22px 22px,
+    #f8fafc;
   border-radius: 10px;
   border: 1px solid var(--gray-200);
+}
+
+.seat-map.layout-grid .seat-btn {
+  aspect-ratio: unset;
+  width: 100%;
+  height: 100%;
 }
 
 /* 그룹 박스 */
@@ -852,6 +860,7 @@ nav {
 
 .seat-btn.table-seat {
   aspect-ratio: unset;
+  width: 100%;
   height: 100%;
   border-radius: 12px;
   font-size: 0.72rem;

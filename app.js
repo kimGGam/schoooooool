@@ -611,36 +611,39 @@ async function renderSeatMap() {
   const f   = selectedFloor + 'f';
   let html  = '';
 
-  // 개별 배치 좌석  (rowEnd: 범위 지정 시 grid-row: row/rowEnd)
-  const solo = [
-    { id:`${f}-quad-1`,   col:1,  row:1, rowEnd:3 },
-    { id:`${f}-single-1`, col:2,  row:1 },
-    { id:`${f}-single-2`, col:3,  row:1 },
-    { id:`${f}-single-3`, col:4,  row:1 },
-    { id:`${f}-single-4`, col:5,  row:1 },
-    { id:`${f}-single-5`, col:6,  row:1 },
-    { id:`${f}-single-6`, col:7,  row:1 },
-    { id:`${f}-single-7`, col:8,  row:1 },
-    { id:`${f}-triple-1`, col:10, row:1, rowEnd:3 },
-    { id:`${f}-quad-2`,   col:1,  row:3, rowEnd:5 },
-    { id:`${f}-triple-2`, col:10, row:3, rowEnd:5 },
+  // 그리드: 12열 (1-3: 단체석 영역, 4: 간격, 5-12: 개인석 영역), 5행 (1-2: 상단, 3: 간격, 4-5: 하단)
+  const seats = [
+    // ── 왼쪽 상단: QUAD-1 (가로형 단체석) ──
+    { id: `${f}-quad-1`,    col: '1/4',   row: '1/3' },
+
+    // ── 오른쪽 상단: 1인석 8개 한 줄 ──
+    { id: `${f}-single-1`,  col: 5,       row: 1 },
+    { id: `${f}-single-2`,  col: 6,       row: 1 },
+    { id: `${f}-single-3`,  col: 7,       row: 1 },
+    { id: `${f}-single-4`,  col: 8,       row: 1 },
+    { id: `${f}-single-5`,  col: 9,       row: 1 },
+    { id: `${f}-single-6`,  col: 10,      row: 1 },
+    { id: `${f}-single-7`,  col: 11,      row: 1 },
+    { id: `${f}-single-8`,  col: 12,      row: 1 },
+
+    // ── 왼쪽 하단: QUAD-2 (가로형 단체석) ──
+    { id: `${f}-quad-2`,    col: '1/4',   row: '4/6' },
+
+    // ── 오른쪽 하단: 복합 배치 ──
+    { id: `${f}-single-9`,  col: 5,       row: 4 },
+    { id: `${f}-single-10`, col: 5,       row: 5 },
+    { id: `${f}-triple-1`,  col: '6/8',   row: '4/6' },  // 세로형 단체석
+    { id: `${f}-single-11`, col: 8,       row: 4 },
+    { id: `${f}-single-13`, col: 8,       row: 5 },
+    { id: `${f}-single-12`, col: 9,       row: 4 },
+    { id: `${f}-single-14`, col: 9,       row: 5 },
+    { id: `${f}-triple-2`,  col: '10/12', row: '4/6' },  // 세로형 단체석
+    { id: `${f}-single-15`, col: 12,      row: 4 },
   ];
-  solo.forEach(({ id, col, row, rowEnd }) => {
-    const rowVal = rowEnd ? `${row}/${rowEnd}` : row;
-    html += `<div style="grid-column:${col};grid-row:${rowVal}">${seatBtn(id)}</div>`;
+
+  seats.forEach(({ id, col, row }) => {
+    html += `<div style="grid-column:${col};grid-row:${row}">${seatBtn(id)}</div>`;
   });
-
-  // 왼쪽 그룹 박스: 8,9,12,13  — 원래 2행, 열은 3/6으로 넓힘
-  html += `<div class="seat-group-box" style="grid-column:3/6;grid-row:2/4">
-    ${seatBtn(`${f}-single-8`)}${seatBtn(`${f}-single-9`)}
-    ${seatBtn(`${f}-single-12`)}${seatBtn(`${f}-single-13`)}
-  </div>`;
-
-  // 오른쪽 그룹 박스: 10,11,14,15  — 원래 2행, 열은 6/9로 넓힘
-  html += `<div class="seat-group-box" style="grid-column:6/9;grid-row:2/4">
-    ${seatBtn(`${f}-single-10`)}${seatBtn(`${f}-single-11`)}
-    ${seatBtn(`${f}-single-14`)}${seatBtn(`${f}-single-15`)}
-  </div>`;
 
   map.innerHTML = html;
   map.className = 'seat-map layout-grid';
