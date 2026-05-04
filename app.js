@@ -30,7 +30,7 @@ const ACADEMIC_SCHEDULE = [
 // ─────────────────────────────────────────────
 
 const SEAT_CONFIG = {
-  single: { label: '1인석', icon: '🪑', count: 15, minPeople: 1, maxPeople: 1 },
+  single: { label: '1인석', icon: '🪑', count: 16, minPeople: 1, maxPeople: 1 },
   triple: { label: '3인석', icon: '👨‍👩‍👧', count: 2,  minPeople: 2, maxPeople: 3 },
   quad:   { label: '4인석', icon: '👨‍👩‍👧‍👦', count: 2,  minPeople: 3, maxPeople: 4 },
 };
@@ -480,50 +480,38 @@ function selectSeatType(btn) {
   selectedSeatType = btn.dataset.type;
   selectedSeatId   = null;
   document.getElementById('seatTypeLabel').textContent = `(${SEAT_CONFIG[selectedSeatType].label})`;
+  document.getElementById('peopleCountGroup').style.display = 'none';
 
-  const cfg = SEAT_CONFIG[selectedSeatType];
-  const pg  = document.getElementById('peopleCountGroup');
-  const pi  = document.getElementById('peopleCount');
   if (selectedSeatType !== 'single') {
-    pg.style.display = 'block';
-    pi.min = cfg.minPeople; pi.max = cfg.maxPeople;
-    pi.placeholder = `${cfg.minPeople}~${cfg.maxPeople}명`;
-    pi.value = '';
-    document.getElementById('peopleCountLabel').textContent =
-      `인원수 (${cfg.minPeople}~${cfg.maxPeople}명)`;
-    document.getElementById('memberIdsGroup').style.display = 'none';
+    renderMemberFields();
   } else {
-    pg.style.display = 'none';
-    pi.value = '';
-    document.getElementById('memberIdsGroup').style.display = 'none';
+    const container = document.getElementById('memberIdsGroup');
+    container.style.display = 'none';
+    container.innerHTML = '';
   }
   renderSeatMap();
 }
 
-// 인원수 입력 시 멤버 아이디 필드 업데이트
-function updateMemberFields() {
+// 멤버 학번 입력 필드 렌더링 (인원수 선택 없이 바로 표시)
+function renderMemberFields() {
   const container = document.getElementById('memberIdsGroup');
-  if (selectedSeatType === 'single') { container.style.display = 'none'; return; }
+  const cfg = SEAT_CONFIG[selectedSeatType];
 
-  const cfg   = SEAT_CONFIG[selectedSeatType];
-  const count = parseInt(document.getElementById('peopleCount').value);
-  if (!count || count < cfg.minPeople || count > cfg.maxPeople) {
-    container.style.display = 'none'; return;
-  }
-
-  container.style.display = 'block';
   container.innerHTML = `<div class="form-group member-ids-wrap">
-    <label>멤버 아이디 입력</label>
-    ${Array.from({length: count}, (_, i) => {
-      const isMe = i === 0;
+    <label>멤버 학번 입력 <small>(${cfg.minPeople}인 이상)</small></label>
+    ${Array.from({length: cfg.maxPeople}, (_, i) => {
+      const isMe       = i === 0;
+      const isRequired = i < cfg.minPeople;
+      const suffix     = isMe ? ' (나)' : isRequired ? '' : ' (선택)';
       return `<div class="member-id-row">
-        <span class="member-label">멤버 ${i+1}${isMe ? ' (나)' : ''}</span>
+        <span class="member-label">멤버 ${i + 1}${suffix}</span>
         <input type="number" class="member-id-input" id="memberId-${i}"
-          placeholder="학번 입력"
+          placeholder="${isRequired ? '학번 입력' : '학번 입력 (선택)'}"
           ${isMe && currentUser ? `value="${currentUser.userId}" readonly` : ''} />
       </div>`;
     }).join('')}
   </div>`;
+  container.style.display = 'block';
 }
 
 // ─────────────────────────────────────────────
@@ -637,6 +625,7 @@ async function renderSeatMap() {
     { id: `${f}-single-12`, col: 9,       row: 4 },
     { id: `${f}-single-14`, col: 9,       row: 5 },
     { id: `${f}-single-15`, col: 12,      row: 4 },
+    { id: `${f}-single-16`, col: 12,      row: 5 },
   ];
 
   seats.forEach(({ id, col, row }) => {
@@ -674,11 +663,6 @@ function goToSeatSelect() {
   if (selectedSlots.size === 0) { alert('시간대를 선택해주세요.'); return; }
 
   if (selectedSeatType !== 'single') {
-    const cfg   = SEAT_CONFIG[selectedSeatType];
-    const count = parseInt(document.getElementById('peopleCount').value);
-    if (!count || count < cfg.minPeople || count > cfg.maxPeople) {
-      alert(`인원수를 ${cfg.minPeople}~${cfg.maxPeople}명으로 입력해주세요.`); return;
-    }
     const memberIds = collectMemberIds();
     if (!memberIds) return;
   }
@@ -689,17 +673,21 @@ function goToSeatSelect() {
 
 function collectMemberIds() {
   if (selectedSeatType === 'single') return [];
-  const count = parseInt(document.getElementById('peopleCount').value);
+  const cfg = SEAT_CONFIG[selectedSeatType];
   const ids = [];
-  for (let i = 0; i < count; i++) {
-    const el  = document.getElementById(`memberId-${i}`);
-    if (!el) { alert('멤버 아이디를 입력해주세요.'); return null; }
+  for (let i = 0; i < cfg.maxPeople; i++) {
+    const el = document.getElementById(`memberId-${i}`);
+    if (!el) continue;
     const val = el.value.trim();
+    if (!val) continue; // 선택 항목은 비워도 됨
     const num = parseInt(val);
-    if (!val || isNaN(num)) {
-      alert(`멤버 ${i+1}의 학번을 올바르게 입력해주세요.`); return null;
+    if (isNaN(num)) {
+      alert(`멤버 ${i + 1}의 학번을 올바르게 입력해주세요.`); return null;
     }
     ids.push(String(num));
+  }
+  if (ids.length < cfg.minPeople) {
+    alert(`${cfg.label}은 ${cfg.minPeople}인 이상 학번을 입력해주세요.`); return null;
   }
   if (new Set(ids).size !== ids.length) { alert('중복된 아이디가 있습니다.'); return null; }
   return ids;
@@ -717,12 +705,9 @@ async function confirmReservation() {
   let memberIds   = [];
 
   if (selectedSeatType !== 'single') {
-    peopleCount = parseInt(document.getElementById('peopleCount').value);
-    if (!peopleCount || peopleCount < cfg.minPeople || peopleCount > cfg.maxPeople) {
-      alert(`인원수를 ${cfg.minPeople}~${cfg.maxPeople}명으로 입력해주세요.`); return;
-    }
     memberIds = collectMemberIds();
     if (!memberIds) return;
+    peopleCount = memberIds.length;
   }
 
   const slotsArr = [...selectedSlots].sort().map(i => TIME_SLOTS[i]);
