@@ -874,19 +874,6 @@ nav {
   flex: 1;
 }
 
-/* 그룹 박스 */
-.seat-group-box {
-  border: 2.5px solid var(--primary);
-  border-radius: 12px;
-  padding: 8px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 6px;
-  background: rgba(79,70,229,0.04);
-  align-content: stretch;
-}
-
 
 .seat-btn.table-seat {
   aspect-ratio: unset;
@@ -907,26 +894,6 @@ nav {
   cursor: default;
 }
 
-/* 예약된 좌석 아이디 표시 */
-.reserved-id {
-  font-size: 0.62rem;
-  font-weight: 700;
-  word-break: break-all;
-  line-height: 1.2;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.id-chip {
-  display: block;
-  font-size: 0.6rem;
-  font-weight: 700;
-  line-height: 1.4;
-  word-break: break-all;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .slot-info {
   display: flex;
   flex-direction: column;
@@ -1056,13 +1023,6 @@ nav {
   font-weight: 700;
   color: #2d3081;
 }
-.sch-empty {
-  color: var(--gray-500);
-  font-size: 0.85rem;
-  text-align: center;
-  padding: 20px 0;
-}
-
 /* ── 달력 그리드 ── */
 .cal-grid {
   display: grid;
@@ -1142,33 +1102,6 @@ nav {
 .btn-secondary:hover { background: var(--gray-200); }
 .btn-secondary.full-width { width: 100%; margin-top: 8px; }
 
-/* ── 학사일정 공통 ── */
-
-.schedule-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.schedule-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  font-size: 0.875rem;
-  padding: 4px 0;
-  border-bottom: 1px solid var(--gray-100);
-}
-.sch-date {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--gray-500);
-  white-space: nowrap;
-  min-width: 70px;
-}
-.sch-event { color: var(--gray-700); }
-.sch-date.exam, .sch-event.exam { color: #e41e25; font-weight: 700; }
-.sch-date.vacation { color: #2d3081; }
-.sch-event.vacation { color: #2d3081; font-weight: 600; }
 
 @media (max-width: 768px) {
   .home-main-inner { grid-template-columns: 1fr; }
