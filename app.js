@@ -530,7 +530,7 @@ async function renderSeatMap() {
   }
   guide.style.display = 'none';
 
-  // reservedMap: seatId → { userId, memberIds }
+  // reservedMap: seatId → [{ userId, memberIds, slotLabel }, ...]
   // 선택된 시간대 중 하나라도 예약된 좌석은 예약 불가로 표시
   let reservedMap = {};
   try {
@@ -538,11 +538,14 @@ async function renderSeatMap() {
     const all = await res.json();
     all.forEach(r => {
       if (!r.cancelled && r.date === viewDateStr) {
+        const matchedSlot = TIME_SLOTS.find(s => s.start === r.startTime && s.end === r.endTime);
+        if (!matchedSlot) return;
         const inSelected = [...selectedSlots].some(i =>
           TIME_SLOTS[i].start === r.startTime && TIME_SLOTS[i].end === r.endTime
         );
         if (inSelected) {
-          reservedMap[r.seatId] = { userId: r.userId, memberIds: r.memberIds || [] };
+          if (!reservedMap[r.seatId]) reservedMap[r.seatId] = [];
+          reservedMap[r.seatId].push({ userId: r.userId, memberIds: r.memberIds || [], slotLabel: matchedSlot.label });
         }
       }
     });
@@ -560,8 +563,8 @@ async function renderSeatMap() {
     const num   = parts[2];   // '1', '2', ...
     const cfg   = SEAT_CONFIG[type];
     const isActive   = type === selectedSeatType;
-    const data       = reservedMap[seatId];
-    const isReserved = !!data;
+    const slots      = reservedMap[seatId] || [];
+    const isReserved = slots.length > 0;
     const isSelected = seatId === selectedSeatId;
     const isTable    = type !== 'single';
 
@@ -577,12 +580,14 @@ async function renderSeatMap() {
 
     let inner;
     if (isReserved) {
-      const ids = data.memberIds.length > 0 ? data.memberIds : [data.userId];
-      if (isTable) {
-        inner = ids.map(id => `<span class="id-chip">${id}</span>`).join('');
-      } else {
-        inner = `<span class="reserved-id">${ids[0]}</span>`;
-      }
+      inner = slots.map(slot => {
+        const ids = slot.memberIds.length > 0 ? slot.memberIds : [slot.userId];
+        if (isTable) {
+          return `<div class="slot-info"><span class="slot-tag">${slot.slotLabel}</span>${ids.map(id => `<span class="id-chip">${id}</span>`).join('')}</div>`;
+        } else {
+          return `<div class="slot-info"><span class="slot-tag">${slot.slotLabel}</span><span class="reserved-id">${ids[0]}</span></div>`;
+        }
+      }).join('');
     } else if (isTable) {
       inner = `<span class="seat-icon">${cfg.icon}</span><span>${cfg.label}</span>`;
     } else {
