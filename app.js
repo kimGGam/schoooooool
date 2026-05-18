@@ -648,6 +648,16 @@ async function renderSeatMap() {
   map.innerHTML = html;
   map.className = 'seat-map layout-grid';
 
+  // 좌석 유형별 남은 좌석 수 업데이트
+  ['single', 'triple', 'quad'].forEach(type => {
+    const el = document.getElementById(`count-${type}`);
+    if (!el) return;
+    const total = SEAT_CONFIG[type].count;
+    const conflictCount = [...conflictSeatIds].filter(id => id.split('-')[1] === type).length;
+    const available = total - conflictCount;
+    el.textContent = selectedSlots.size > 0 ? `${available}/${total}석` : `${total}석`;
+  });
+
   const confirmBtn = document.getElementById('confirmBtn');
   if (confirmBtn) confirmBtn.style.display = selectedSeatId ? 'block' : 'none';
 }
