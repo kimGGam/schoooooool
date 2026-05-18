@@ -5,12 +5,16 @@ const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// ── 스토리지: Vercel이면 KV, 로컬이면 파일 ──
+// ── 스토리지: Vercel이면 Upstash Redis, 로컬이면 파일 ──
 const isVercel = !!process.env.VERCEL;
 
-let kv;
+let redis;
 if (isVercel) {
-  kv = require('@vercel/kv').kv;
+  const { Redis } = require('@upstash/redis');
+  redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  });
 }
 
 const fs = require('fs');
@@ -23,19 +27,19 @@ if (!isVercel) {
 }
 
 async function readDB() {
-  if (isVercel) return (await kv.get('reservations')) || [];
+  if (isVercel) return (await redis.get('reservations')) || [];
   return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
 }
 async function writeDB(d) {
-  if (isVercel) { await kv.set('reservations', d); return; }
+  if (isVercel) { await redis.set('reservations', d); return; }
   fs.writeFileSync(DB_FILE, JSON.stringify(d, null, 2));
 }
 async function readUsers() {
-  if (isVercel) return (await kv.get('users')) || {};
+  if (isVercel) return (await redis.get('users')) || {};
   return JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
 }
 async function writeUsers(d) {
-  if (isVercel) { await kv.set('users', d); return; }
+  if (isVercel) { await redis.set('users', d); return; }
   fs.writeFileSync(USERS_FILE, JSON.stringify(d, null, 2));
 }
 
