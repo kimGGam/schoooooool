@@ -136,6 +136,26 @@ app.post('/api/reservations', async (req, res) => {
 
     const list = await readDB();
 
+    // 같은 좌석 + 같은 시간 → 중복 차단
+    const seatConflict = list.find(r =>
+      !r.cancelled && r.date === date && r.seatId === seatId &&
+      r.startTime === startTime && r.endTime === endTime
+    );
+    if (seatConflict) return res.status(409).json({ error: '이미 예약된 좌석입니다.', type: 'seat' });
+
+    // 같은 사람 + 같은 시간 → 중복 차단 (다른 시간대는 허용 = 연속 예약 가능)
+    const allIds = (memberIds && memberIds.length > 0) ? memberIds : [userId];
+    for (const id of allIds) {
+      const userConflict = list.find(r => {
+        if (r.cancelled || r.date !== date || r.startTime !== startTime || r.endTime !== endTime) return false;
+        const existingIds = (r.memberIds && r.memberIds.length > 0) ? r.memberIds : [r.userId];
+        return existingIds.includes(id);
+      });
+      if (userConflict) {
+        return res.status(409).json({ error: `${id}는 이미 해당 시간에 예약이 있습니다.`, type: 'user', conflictId: id });
+      }
+    }
+
     const reservation = {
       id: Date.now().toString(),
       userId, name, date, startTime, endTime,
