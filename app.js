@@ -533,9 +533,10 @@ async function renderSeatMap() {
   }
   guide.style.display = 'none';
 
-  // reservedMap: seatId → [{ userId, memberIds, slotLabel }, ...]
-  // 선택된 시간대 중 하나라도 예약된 좌석은 예약 불가로 표시
-  let reservedMap = {};
+  // allReservedMap: 해당 날짜의 모든 예약 (시간 무관, 항상 표시)
+  // conflictSeatIds: 선택된 시간대와 겹치는 좌석 (예약 불가)
+  let allReservedMap = {};
+  let conflictSeatIds = new Set();
   try {
     const res = await fetch('/api/reservations');
     const all = await res.json();
@@ -543,13 +544,12 @@ async function renderSeatMap() {
       if (!r.cancelled && r.date === viewDateStr) {
         const matchedSlot = TIME_SLOTS.find(s => s.start === r.startTime && s.end === r.endTime);
         if (!matchedSlot) return;
+        if (!allReservedMap[r.seatId]) allReservedMap[r.seatId] = [];
+        allReservedMap[r.seatId].push({ userId: r.userId, memberIds: r.memberIds || [], slotLabel: matchedSlot.short });
         const inSelected = [...selectedSlots].some(i =>
           TIME_SLOTS[i].start === r.startTime && TIME_SLOTS[i].end === r.endTime
         );
-        if (inSelected) {
-          if (!reservedMap[r.seatId]) reservedMap[r.seatId] = [];
-          reservedMap[r.seatId].push({ userId: r.userId, memberIds: r.memberIds || [], slotLabel: matchedSlot.short });
-        }
+        if (inSelected) conflictSeatIds.add(r.seatId);
       }
     });
   } catch(e) {
@@ -565,24 +565,26 @@ async function renderSeatMap() {
     const type  = parts[1];   // 'single' | 'triple' | 'quad'
     const num   = parts[2];   // '1', '2', ...
     const cfg   = SEAT_CONFIG[type];
-    const isActive   = type === selectedSeatType;
-    const slots      = reservedMap[seatId] || [];
-    const isReserved = slots.length > 0;
-    const isSelected = seatId === selectedSeatId;
-    const isTable    = type !== 'single';
+    const isActive    = type === selectedSeatType;
+    const slots       = allReservedMap[seatId] || [];
+    const hasAny      = slots.length > 0;
+    const isConflict  = conflictSeatIds.has(seatId);
+    const isSelected  = seatId === selectedSeatId;
+    const isTable     = type !== 'single';
 
     let cls = 'seat-btn';
-    if (large)            cls += ' large';
-    if (isTable)          cls += ' table-seat';
-    if (!isActive)        cls += ' other-type';
-    else if (isReserved)  cls += ' reserved';
-    else if (isSelected)  cls += ' selected';
-    else                  cls += ' available';
+    if (large)              cls += ' large';
+    if (isTable)            cls += ' table-seat';
+    if (!isActive)          cls += ' other-type';
+    else if (isConflict)    cls += ' reserved';
+    else if (hasAny)        cls += ' reserved-other';
+    else if (isSelected)    cls += ' selected';
+    else                    cls += ' available';
 
-    const clickable = isActive && !isReserved && isToday;
+    const clickable = isActive && !isConflict && isToday;
 
     let inner;
-    if (isReserved) {
+    if (hasAny) {
       inner = slots.map(slot => {
         const ids = slot.memberIds.length > 0 ? slot.memberIds : [slot.userId];
         if (isTable) {

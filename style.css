@@ -400,9 +400,10 @@ nav {
   vertical-align: middle;
 }
 
-.dot.available { background: #d1fae5; border: 1px solid #6ee7b7; }
-.dot.reserved  { background: #fee2e2; border: 1px solid #fca5a5; }
-.dot.selected  { background: var(--primary); }
+.dot.available      { background: #d1fae5; border: 1px solid #6ee7b7; }
+.dot.reserved       { background: #fee2e2; border: 1px solid #fca5a5; }
+.dot.reserved-other { background: #fef9c3; border: 1px solid #fde68a; }
+.dot.selected       { background: var(--primary); }
 
 .seat-map {
   display: grid;
@@ -430,6 +431,8 @@ nav {
   align-items: center;
   justify-content: center;
   gap: 2px;
+  overflow: hidden;
+  word-break: break-all;
 }
 
 .seat-btn .seat-icon { font-size: 1.1rem; }
@@ -450,6 +453,13 @@ nav {
   color: #991b1b;
   border: 1px solid #fca5a5;
   cursor: not-allowed;
+}
+
+/* 다른 시간대에 예약됨 (선택 시간대와 무관 → 클릭 가능) */
+.seat-btn.reserved-other {
+  background: #fef9c3;
+  color: #92400e;
+  border: 1px solid #fde68a;
 }
 
 .seat-btn.selected {
@@ -912,6 +922,9 @@ nav {
   font-weight: 700;
   word-break: break-all;
   line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .id-chip {
   display: block;
@@ -919,6 +932,9 @@ nav {
   font-weight: 700;
   line-height: 1.4;
   word-break: break-all;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .slot-info {
   display: flex;
@@ -926,11 +942,13 @@ nav {
   align-items: center;
   gap: 1px;
   width: 100%;
+  overflow: hidden;
+  min-width: 0;
 }
 .slot-info + .slot-info {
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px solid rgba(255,255,255,0.3);
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(0,0,0,0.12);
 }
 .slot-tag {
   font-size: 0.6rem;
