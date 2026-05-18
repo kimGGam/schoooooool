@@ -134,7 +134,17 @@ app.post('/api/reservations', async (req, res) => {
     if (!userId || !date || !startTime || !endTime || !seatId)
       return res.status(400).json({ error: '필수 항목 누락' });
 
-    const list = await readDB();
+    const [list, users] = await Promise.all([readDB(), readUsers()]);
+
+    // 3/4인석: 멤버 학번이 가입된 계정인지 검증
+    if (seatType === 'triple' || seatType === 'quad') {
+      const ids = (memberIds && memberIds.length > 0) ? memberIds : [userId];
+      for (const id of ids) {
+        if (!users[id]) {
+          return res.status(400).json({ error: `${id}는 가입되지 않은 학번입니다.`, type: 'unregistered', conflictId: id });
+        }
+      }
+    }
 
     // 같은 좌석 + 같은 시간 → 중복 차단
     const seatConflict = list.find(r =>

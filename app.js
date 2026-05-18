@@ -726,7 +726,11 @@ async function confirmReservation() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) results.push({ slot, ok: false, error: data.error || '실패' });
+      if (!res.ok) {
+        // 미가입 학번 오류는 즉시 중단
+        if (data.type === 'unregistered') { alert(data.error); return; }
+        results.push({ slot, ok: false, error: data.error || '실패' });
+      }
       else         results.push({ slot, ok: true });
     } catch(e) {
       results.push({ slot, ok: false, error: '서버 연결 오류' });
