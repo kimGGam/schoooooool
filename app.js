@@ -36,9 +36,9 @@ const SEAT_CONFIG = {
 };
 
 const TIME_SLOTS = [
-  { label: '8교시',     range: '16:50 ~ 18:00', start: '16:50', end: '18:00' },
-  { label: '야자 1교시', range: '19:00 ~ 20:20', start: '19:00', end: '20:20' },
-  { label: '야자 2교시', range: '20:40 ~ 22:00', start: '20:40', end: '22:00' },
+  { label: '8교시',     short: '8교시', range: '16:50 ~ 18:00', start: '16:50', end: '18:00' },
+  { label: '야자 1교시', short: '야자1',  range: '19:00 ~ 20:20', start: '19:00', end: '20:20' },
+  { label: '야자 2교시', short: '야자2',  range: '20:40 ~ 22:00', start: '20:40', end: '22:00' },
 ];
 
 // ─────────────────────────────────────────────
@@ -458,11 +458,14 @@ function initReservePage() {
   weekOffset      = 0;
   selectedSlots  = new Set([0]);
   selectedSeatId = null;
-  selectedFloor   = '3';
+
+  // 학번 30600 이상이면 4층 기본, 미만이면 3층 기본
+  const uid = parseInt(currentUser?.userId);
+  selectedFloor = (!isNaN(uid) && uid >= 30600) ? '4' : '3';
 
   // 층 버튼 초기화
   document.querySelectorAll('.floor-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.floor === '3');
+    b.classList.toggle('active', b.dataset.floor === selectedFloor);
   });
 
   renderWeekView();
@@ -545,7 +548,7 @@ async function renderSeatMap() {
         );
         if (inSelected) {
           if (!reservedMap[r.seatId]) reservedMap[r.seatId] = [];
-          reservedMap[r.seatId].push({ userId: r.userId, memberIds: r.memberIds || [], slotLabel: matchedSlot.label });
+          reservedMap[r.seatId].push({ userId: r.userId, memberIds: r.memberIds || [], slotLabel: matchedSlot.short });
         }
       }
     });

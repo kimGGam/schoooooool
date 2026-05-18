@@ -15,6 +15,7 @@
   --gray-100: #f3f4f6;
   --gray-200: #e5e7eb;
   --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
   --gray-500: #6b7280;
   --gray-700: #374151;
   --gray-900: #111827;
@@ -932,13 +933,14 @@ nav {
   border-top: 1px solid rgba(255,255,255,0.3);
 }
 .slot-tag {
-  font-size: 0.55rem;
-  font-weight: 700;
-  background: rgba(255,255,255,0.25);
+  font-size: 0.6rem;
+  font-weight: 800;
+  background: rgba(0,0,0,0.18);
   border-radius: 3px;
-  padding: 1px 4px;
+  padding: 1px 5px;
   margin-bottom: 2px;
   white-space: nowrap;
+  letter-spacing: -0.2px;
 }
 
 /* ── 배치도 오버레이 ── */
