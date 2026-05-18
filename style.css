@@ -412,11 +412,6 @@ nav {
   min-height: 120px;
 }
 
-.seat-map.single-map  { grid-template-columns: repeat(5, 1fr); }
-.seat-map.double-map  { grid-template-columns: repeat(4, 1fr); }
-.seat-map.triple-map  { grid-template-columns: repeat(2, 1fr); }
-.seat-map.quad-map    { grid-template-columns: repeat(2, 1fr); }
-.seat-map.group-map   { grid-template-columns: repeat(3, 1fr); }
 
 .seat-btn {
   aspect-ratio: 1;
@@ -892,10 +887,6 @@ nav {
   align-content: stretch;
 }
 
-.seat-btn.large {
-  font-size: 0.95rem;
-  font-weight: 800;
-}
 
 .seat-btn.table-seat {
   aspect-ratio: unset;
@@ -960,109 +951,6 @@ nav {
   white-space: nowrap;
   letter-spacing: -0.2px;
 }
-
-/* ── 배치도 오버레이 ── */
-.seat-map.floorplan-mode {
-  display: block;
-  min-height: unset;
-}
-
-.floorplan-wrapper {
-  position: relative;
-  width: 100%;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #111;
-}
-
-.floorplan-img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.fp-seat {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  font-size: 0.68rem;
-  font-weight: 800;
-  border: 2px solid transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: translate(-50%, -50%);
-  transition: transform 0.15s, box-shadow 0.15s;
-  line-height: 1;
-}
-
-.fp-seat.fp-table {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  font-size: 0.8rem;
-}
-
-.fp-seat.fp-available {
-  background: #d1fae5;
-  color: #065f46;
-  border-color: #6ee7b7;
-}
-.fp-seat.fp-available:hover {
-  transform: translate(-50%, -50%) scale(1.15);
-  box-shadow: 0 0 8px rgba(110,231,183,0.8);
-}
-
-.fp-seat.fp-reserved {
-  background: #fee2e2;
-  color: #991b1b;
-  border-color: #fca5a5;
-  cursor: not-allowed;
-}
-
-.fp-seat.fp-selected {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary-dark);
-  transform: translate(-50%, -50%) scale(1.15);
-  box-shadow: 0 0 10px rgba(79,70,229,0.6);
-}
-
-.fp-seat.fp-dim {
-  background: rgba(255,255,255,0.15);
-  color: rgba(255,255,255,0.4);
-  border-color: rgba(255,255,255,0.1);
-  cursor: default;
-}
-
-/* ── 내 공부 시간 ── */
-.my-study-section {
-  background: linear-gradient(135deg, #2d3081 0%, #4f46e5 100%);
-  padding: 24px;
-}
-.my-study-inner {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 24px;
-}
-.my-study-card {
-  background: rgba(255,255,255,0.12);
-  border-radius: 16px;
-  padding: 20px 28px;
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  color: #fff;
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(255,255,255,0.2);
-}
-.my-study-icon { font-size: 2.4rem; }
-.my-study-info, .my-study-sessions { flex: 1; }
-.my-study-label { font-size: 0.8rem; opacity: 0.75; margin-bottom: 4px; }
-.my-study-time  { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; }
-.my-study-count { font-size: 1.8rem; font-weight: 800; }
 
 /* ── 홈 메인 레이아웃 ── */
 .home-main-section {

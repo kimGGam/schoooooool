@@ -42,6 +42,21 @@ const TIME_SLOTS = [
 ];
 
 // ─────────────────────────────────────────────
+//  예약 캐시 (불필요한 API 중복 호출 방지)
+// ─────────────────────────────────────────────
+let _reservationCache = null;
+
+async function fetchReservations(forceRefresh = false) {
+  if (_reservationCache && !forceRefresh) return _reservationCache;
+  const res = await fetch('/api/reservations');
+  if (!res.ok) throw new Error('서버 오류');
+  _reservationCache = await res.json();
+  return _reservationCache;
+}
+
+function invalidateCache() { _reservationCache = null; }
+
+// ─────────────────────────────────────────────
 //  세션
 // ─────────────────────────────────────────────
 
@@ -298,8 +313,7 @@ async function loadHomeDashboard() {
   if (!card) return;
 
   try {
-    const res = await fetch(`/api/reservations?userId=${encodeURIComponent(currentUser.userId)}`);
-    const all = await res.json();
+    const all = (await fetchReservations()).filter(r => r.userId === currentUser.userId);
 
     const now     = new Date();
     const nowStr  = toDateStr(now);
@@ -483,7 +497,6 @@ function selectSeatType(btn) {
   selectedSeatType = btn.dataset.type;
   selectedSeatId   = null;
   document.getElementById('seatTypeLabel').textContent = `(${SEAT_CONFIG[selectedSeatType].label})`;
-  document.getElementById('peopleCountGroup').style.display = 'none';
 
   if (selectedSeatType !== 'single') {
     renderMemberFields();
@@ -538,8 +551,7 @@ async function renderSeatMap() {
   let allReservedMap = {};
   let conflictSeatIds = new Set();
   try {
-    const res = await fetch('/api/reservations');
-    const all = await res.json();
+    const all = await fetchReservations();
     all.forEach(r => {
       if (!r.cancelled && r.date === viewDateStr) {
         const matchedSlot = TIME_SLOTS.find(s => s.start === r.startTime && s.end === r.endTime);
@@ -560,7 +572,7 @@ async function renderSeatMap() {
   const isToday = viewDateStr === todayStr;
 
   // seatId 형식: '{floor}f-{type}-{num}'  예) '3f-single-1', '4f-quad-2'
-  function seatBtn(seatId, large = false) {
+  function seatBtn(seatId) {
     const parts = seatId.split('-');
     const type  = parts[1];   // 'single' | 'triple' | 'quad'
     const num   = parts[2];   // '1', '2', ...
@@ -573,7 +585,6 @@ async function renderSeatMap() {
     const isTable     = type !== 'single';
 
     let cls = 'seat-btn';
-    if (large)              cls += ' large';
     if (isTable)            cls += ' table-seat';
     if (!isActive)          cls += ' other-type';
     else if (isConflict)    cls += ' reserved';
@@ -653,7 +664,8 @@ async function renderSeatMap() {
     const el = document.getElementById(`count-${type}`);
     if (!el) return;
     const total = SEAT_CONFIG[type].count;
-    const conflictCount = [...conflictSeatIds].filter(id => id.split('-')[1] === type).length;
+    const floorPrefix = selectedFloor + 'f-';
+    const conflictCount = [...conflictSeatIds].filter(id => id.startsWith(floorPrefix) && id.split('-')[1] === type).length;
     const available = total - conflictCount;
     el.textContent = selectedSlots.size > 0 ? `${available}/${total}석` : `${total}석`;
   });
@@ -773,6 +785,7 @@ async function confirmReservation() {
   `;
   document.getElementById('modal').style.display = 'flex';
   selectedSeatId = null;
+  invalidateCache();
   renderSeatMap();
 }
 
@@ -787,8 +800,7 @@ async function loadMyReservations() {
   const list = document.getElementById('reservationList');
 
   try {
-    const res = await fetch(`/api/reservations?userId=${encodeURIComponent(currentUser.userId)}`);
-    const reservations = await res.json();
+    const reservations = (await fetchReservations()).filter(r => r.userId === currentUser.userId);
 
     if (reservations.length === 0) {
       list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>예약 내역이 없습니다.</p></div>`;
@@ -831,6 +843,7 @@ async function cancelReservation(id) {
   try {
     const res = await fetch(`/api/reservations/${id}/cancel`, { method:'PATCH' });
     if (!res.ok) { alert('취소에 실패했습니다.'); return; }
+    invalidateCache();
     loadMyReservations();
   } catch(e) { alert('서버에 연결할 수 없습니다.'); }
 }
@@ -844,8 +857,7 @@ async function loadRanking() {
   container.innerHTML = '<p style="text-align:center;color:var(--gray-500);padding:40px">로딩 중...</p>';
 
   try {
-    const res    = await fetch('/api/reservations');
-    const all    = await res.json();
+    const all = await fetchReservations();
     const active = all.filter(r => !r.cancelled);
 
     const slotCounts = TIME_SLOTS.map((slot, i) => ({
