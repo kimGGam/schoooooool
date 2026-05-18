@@ -1,31 +1,53 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 
 const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
+// ── 스토리지: Vercel이면 KV, 로컬이면 파일 ──
+const isVercel = !!process.env.VERCEL;
+
+let kv;
+if (isVercel) {
+  kv = require('@vercel/kv').kv;
+}
+
+const fs = require('fs');
 const DB_FILE    = path.join(__dirname, 'reservations.json');
 const USERS_FILE = path.join(__dirname, 'users.json');
 
-if (!fs.existsSync(DB_FILE))    fs.writeFileSync(DB_FILE,    '[]');
-if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, '{}');
+if (!isVercel) {
+  if (!fs.existsSync(DB_FILE))    fs.writeFileSync(DB_FILE,    '[]');
+  if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, '{}');
+}
 
-function readDB()      { return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8')); }
-function writeDB(d)    { fs.writeFileSync(DB_FILE, JSON.stringify(d, null, 2)); }
-function readUsers()   { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8')); }
-function writeUsers(d) { fs.writeFileSync(USERS_FILE, JSON.stringify(d, null, 2)); }
+async function readDB() {
+  if (isVercel) return (await kv.get('reservations')) || [];
+  return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+}
+async function writeDB(d) {
+  if (isVercel) { await kv.set('reservations', d); return; }
+  fs.writeFileSync(DB_FILE, JSON.stringify(d, null, 2));
+}
+async function readUsers() {
+  if (isVercel) return (await kv.get('users')) || {};
+  return JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+}
+async function writeUsers(d) {
+  if (isVercel) { await kv.set('users', d); return; }
+  fs.writeFileSync(USERS_FILE, JSON.stringify(d, null, 2));
+}
 
 // ── 로그인 ──
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   try {
     const { userId, password } = req.body;
     const id = String(userId).trim();
     if (!id || isNaN(parseInt(id)))
       return res.status(400).json({ error: '학번을 올바르게 입력해주세요.' });
 
-    const users = readUsers();
+    const users = await readUsers();
     if (!users[id]) {
       if (password !== '0000')
         return res.status(401).json({ error: '비밀번호가 올바르지 않습니다.' });
@@ -41,7 +63,7 @@ app.post('/api/login', (req, res) => {
 });
 
 // ── 프로필 설정 ──
-app.post('/api/setup-profile', (req, res) => {
+app.post('/api/setup-profile', async (req, res) => {
   try {
     const { userId, currentPassword, newPassword, name } = req.body;
     const id = String(userId);
@@ -50,13 +72,13 @@ app.post('/api/setup-profile', (req, res) => {
     if (!name || !name.trim())
       return res.status(400).json({ error: '이름을 입력해주세요.' });
 
-    const users = readUsers();
+    const users = await readUsers();
     const expected = users[id] ? users[id].password : '0000';
     if (currentPassword !== expected)
       return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다.' });
 
     users[id] = { password: newPassword, name: name.trim() };
-    writeUsers(users);
+    await writeUsers(users);
     return res.json({ userId: id, name: name.trim() });
   } catch (e) {
     console.error(e);
@@ -65,14 +87,14 @@ app.post('/api/setup-profile', (req, res) => {
 });
 
 // ── 프로필 변경 ──
-app.post('/api/change-profile', (req, res) => {
+app.post('/api/change-profile', async (req, res) => {
   try {
     const { userId, currentPassword, newPassword, name } = req.body;
     const id = String(userId);
     if (!name || !name.trim())
       return res.status(400).json({ error: '이름을 입력해주세요.' });
 
-    const users = readUsers();
+    const users = await readUsers();
     if (!users[id]) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     if (users[id].password !== currentPassword)
       return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다.' });
@@ -81,7 +103,7 @@ app.post('/api/change-profile', (req, res) => {
 
     users[id].name = name.trim();
     if (newPassword) users[id].password = newPassword;
-    writeUsers(users);
+    await writeUsers(users);
     return res.json({ userId: id, name: users[id].name });
   } catch (e) {
     console.error(e);
@@ -90,9 +112,9 @@ app.post('/api/change-profile', (req, res) => {
 });
 
 // ── 예약 조회 ──
-app.get('/api/reservations', (req, res) => {
+app.get('/api/reservations', async (req, res) => {
   try {
-    let list = readDB();
+    let list = await readDB();
     if (req.query.userId) list = list.filter(r => r.userId === req.query.userId);
     res.json(list);
   } catch (e) {
@@ -102,13 +124,13 @@ app.get('/api/reservations', (req, res) => {
 });
 
 // ── 예약 생성 ──
-app.post('/api/reservations', (req, res) => {
+app.post('/api/reservations', async (req, res) => {
   try {
     const { userId, name, date, startTime, endTime, seatType, seatTypeLabel, seatId, seatLabel, peopleCount, memberIds } = req.body;
     if (!userId || !date || !startTime || !endTime || !seatId)
       return res.status(400).json({ error: '필수 항목 누락' });
 
-    const list = readDB();
+    const list = await readDB();
 
     const seatConflict = list.find(r =>
       !r.cancelled && r.date === date && r.seatId === seatId &&
@@ -136,7 +158,7 @@ app.post('/api/reservations', (req, res) => {
       cancelled: false, createdAt: new Date().toISOString(),
     };
     list.push(reservation);
-    writeDB(list);
+    await writeDB(list);
     res.status(201).json(reservation);
   } catch (e) {
     console.error(e);
@@ -145,13 +167,13 @@ app.post('/api/reservations', (req, res) => {
 });
 
 // ── 예약 취소 ──
-app.patch('/api/reservations/:id/cancel', (req, res) => {
+app.patch('/api/reservations/:id/cancel', async (req, res) => {
   try {
-    const list = readDB();
+    const list = await readDB();
     const r = list.find(r => r.id === req.params.id);
     if (!r) return res.status(404).json({ error: '없음' });
     r.cancelled = true;
-    writeDB(list);
+    await writeDB(list);
     res.json(r);
   } catch (e) {
     console.error(e);
@@ -159,7 +181,11 @@ app.patch('/api/reservations/:id/cancel', (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✅ 서버 실행 중: http://localhost:${PORT}`);
-});
+module.exports = app;
+
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`✅ 서버 실행 중: http://localhost:${PORT}`);
+  });
+}
