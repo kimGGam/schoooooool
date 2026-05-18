@@ -585,14 +585,9 @@ async function renderSeatMap() {
 
     let inner;
     if (hasAny) {
-      inner = slots.map(slot => {
-        const ids = slot.memberIds.length > 0 ? slot.memberIds : [slot.userId];
-        if (isTable) {
-          return `<div class="slot-info"><span class="slot-tag">${slot.slotLabel}</span>${ids.map(id => `<span class="id-chip">${id}</span>`).join('')}</div>`;
-        } else {
-          return `<div class="slot-info"><span class="slot-tag">${slot.slotLabel}</span><span class="reserved-id">${ids[0]}</span></div>`;
-        }
-      }).join('');
+      inner = slots.map(slot =>
+        `<div class="slot-info"><span class="slot-tag">${slot.slotLabel}</span></div>`
+      ).join('');
     } else if (isTable) {
       inner = `<span class="seat-icon">${cfg.icon}</span><span>${cfg.label}</span>`;
     } else {
