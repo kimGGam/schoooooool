@@ -61,6 +61,10 @@ function invalidateCache() { _reservationCache = null; }
 // ─────────────────────────────────────────────
 
 let currentUser = null;
+let loginMode   = 'student'; // 'student' | 'admin'
+let adminTarget = null;      // { userId, name } — 관리자가 선택한 예약 대상 학생
+let adminStudentLookupTimer = null;
+let quickRegTargetId = '';
 
 function loadSession() {
   try { const s = localStorage.getItem('studycafe_user'); if (s) currentUser = JSON.parse(s); } catch(e) {}
@@ -68,13 +72,27 @@ function loadSession() {
 function saveSession(u)  { currentUser = u; localStorage.setItem('studycafe_user', JSON.stringify(u)); }
 function clearSession()  { currentUser = null; localStorage.removeItem('studycafe_user'); }
 
+function switchLoginTab(mode) {
+  loginMode = mode;
+  document.getElementById('tabStudent').classList.toggle('active', mode === 'student');
+  document.getElementById('tabAdmin').classList.toggle('active', mode === 'admin');
+  document.getElementById('studentLoginFields').style.display = mode === 'student' ? 'block' : 'none';
+  document.getElementById('adminLoginFields').style.display   = mode === 'admin'   ? 'block' : 'none';
+}
+
 // ─────────────────────────────────────────────
 //  로그인
 // ─────────────────────────────────────────────
 
 async function doLogin() {
-  const userId   = document.getElementById('loginId').value.trim();
-  const password = document.getElementById('loginPw').value;
+  let userId, password;
+  if (loginMode === 'admin') {
+    userId   = 'admin';
+    password = document.getElementById('adminPw').value;
+  } else {
+    userId   = document.getElementById('loginId').value.trim();
+    password = document.getElementById('loginPw').value;
+  }
   if (!userId || !password) { alert('아이디와 비밀번호를 입력해주세요.'); return; }
 
   try {
@@ -88,15 +106,18 @@ async function doLogin() {
       document.getElementById('setupCurrentPw').value      = password;
       document.getElementById('setupModal').style.display  = 'flex';
     } else {
-      saveSession({ userId: data.userId, name: data.name });
+      saveSession({ userId: data.userId, name: data.name, isAdmin: !!data.isAdmin });
       document.getElementById('loginModal').style.display = 'none';
       updateUserInfo();
+      if (data.isAdmin) showPage('reserve'); else loadHomeDashboard();
     }
   } catch(e) { alert('서버에 연결할 수 없습니다.'); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('loginPw').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+  document.getElementById('adminPw').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+  document.getElementById('historyAuthPw').addEventListener('keydown', e => { if (e.key==='Enter') doHistoryAuth(); });
   document.getElementById('setupConfirmPw').addEventListener('keydown', e => { if (e.key==='Enter') doSetupProfile(); });
 });
 
@@ -116,32 +137,91 @@ async function doSetupProfile() {
     const data = await res.json();
     if (!res.ok) { alert(data.error); return; }
 
-    saveSession({ userId: data.userId, name: data.name });
+    saveSession({ userId: data.userId, name: data.name, isAdmin: !!data.isAdmin });
     document.getElementById('setupModal').style.display = 'none';
     updateUserInfo();
+    if (data.isAdmin) {
+      showPage('reserve');
+    } else {
+      loadHomeDashboard();
+      document.getElementById('welcomeModal').style.display = 'flex';
+    }
   } catch(e) { alert('서버에 연결할 수 없습니다.'); }
+}
+
+function closeWelcomeModal() {
+  document.getElementById('welcomeModal').style.display = 'none';
 }
 
 function logout() {
   clearSession();
+  adminTarget = null;
   document.getElementById('loginId').value = '';
   document.getElementById('loginPw').value = '';
+  document.getElementById('adminPw').value = '';
   document.getElementById('loginModal').style.display = 'flex';
   updateUserInfo();
+}
+
+function openAdminLogoutModal() {
+  document.getElementById('adminLogoutPw').value = '';
+  document.getElementById('adminLogoutModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('adminLogoutPw').focus(), 100);
+}
+
+function closeAdminLogoutModal() {
+  document.getElementById('adminLogoutModal').style.display = 'none';
+}
+
+async function doAdminLogout() {
+  const pw = document.getElementById('adminLogoutPw').value;
+  if (!pw) { alert('비밀번호를 입력하세요.'); return; }
+  try {
+    const res  = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: 'admin', password: pw })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) { alert('비밀번호가 틀렸습니다.'); return; }
+    closeAdminLogoutModal();
+    logout();
+  } catch { alert('오류가 발생했습니다.'); }
 }
 
 function updateUserInfo() {
   const el = document.getElementById('userInfo');
   if (currentUser) {
-    el.innerHTML = `<span class="user-name">${currentUser.name} <small>(${currentUser.userId})</small></span>
-      <button class="settings-btn" onclick="openProfileModal()" title="개인정보 변경">⚙️</button>
-      <button class="logout-btn" onclick="logout()">로그아웃</button>`;
+    if (currentUser.isAdmin) {
+      el.innerHTML = `<span class="user-name">관리자</span>
+        <button class="settings-btn" onclick="openProfileModal()" title="비밀번호 변경">⚙️</button>
+        <button class="logout-btn" onclick="openAdminLogoutModal()">로그아웃</button>`;
+    } else {
+      el.innerHTML = `<span class="user-name">${currentUser.name} <small>(${currentUser.userId})</small></span>
+        <button class="settings-btn" onclick="openProfileModal()" title="개인정보 변경">⚙️</button>
+        <button class="logout-btn" onclick="logout()">로그아웃</button>`;
+    }
   } else {
     el.innerHTML = '';
   }
+
+  // 관리자: 예약하기 탭만 표시
+  const navBtns = document.querySelectorAll('.nav-btn');
+  navBtns.forEach((btn, i) => {
+    btn.style.display = (currentUser?.isAdmin && i !== 1) ? 'none' : '';
+  });
+
+  // 관리자: 전체 예약 기록 버튼 표시
+  const histBtn = document.getElementById('adminHistoryBtn');
+  if (histBtn) histBtn.style.display = currentUser?.isAdmin ? '' : 'none';
+
   const badge = document.getElementById('userBadge');
   if (badge && currentUser) {
-    badge.innerHTML = `<div class="user-badge">👤 ${currentUser.name} <span>(${currentUser.userId})</span></div>`;
+    if (currentUser.isAdmin) {
+      badge.innerHTML = `<div class="user-badge">🔑 관리자 모드</div>`;
+    } else {
+      badge.innerHTML = `<div class="user-badge">👤 ${currentUser.name} <span>(${currentUser.userId})</span></div>`;
+    }
   }
 }
 
@@ -403,8 +483,9 @@ function renderWeekView() {
     const isToday    = ds === todayStr;
     const isSelected = ds === viewDateStr;
     const isPast     = ds < todayStr;
+    const isDisabled = isPast || !isToday;
     return `<button class="day-btn${isToday?' today':''}${isSelected?' selected':''}${isPast?' past':''}"
-      onclick="selectDay('${ds}')" ${isPast?'disabled':''}>
+      onclick="selectDay('${ds}')" ${isDisabled?'disabled':''}>
       <span class="day-label">${labels[i]}</span>
       <span class="day-num">${d.getDate()}</span>
       ${isToday ? '<span class="today-badge">오늘</span>' : ''}
@@ -417,7 +498,7 @@ function selectDay(ds) {
   renderWeekView(); renderSeatMap();
   const isToday = ds === todayStr;
   document.getElementById('reserveActions').style.display  = isToday ? 'block' : 'none';
-  document.getElementById('viewOnlyNotice').style.display  = isToday ? 'none'  : 'block';
+  document.getElementById('viewOnlyNotice').style.display  = 'none';
   const btn = document.getElementById('confirmBtn');
   if (btn) btn.style.display = 'none';
 }
@@ -434,15 +515,27 @@ let selectedSlots = new Set(); // 선택된 시간대 인덱스 집합
 function renderTimeSlots() {
   const container = document.getElementById('timeSlotBtns');
   if (!container) return;
-  container.innerHTML = TIME_SLOTS.map((s, i) => `
-    <button class="time-slot-btn${selectedSlots.has(i) ? ' selected' : ''}"
-      onclick="selectTimeSlot(${i})">
+  const nowTime = new Date().toTimeString().slice(0, 5);
+
+  // 종료된 시간대는 선택에서 제거
+  TIME_SLOTS.forEach((s, i) => { if (s.end <= nowTime) selectedSlots.delete(i); });
+
+  container.innerHTML = TIME_SLOTS.map((s, i) => {
+    const isPast    = s.end <= nowTime;
+    const isCurrent = s.start <= nowTime && nowTime < s.end;
+    return `<button class="time-slot-btn${selectedSlots.has(i) ? ' selected' : ''}${isPast ? ' slot-past' : ''}${isCurrent ? ' slot-current' : ''}"
+      ${isPast ? 'disabled' : ''} onclick="selectTimeSlot(${i})">
       <span class="ts-label">${s.label}</span>
       <span class="ts-range">${s.range}</span>
-    </button>`).join('');
+      ${isPast    ? '<span class="ts-status-badge">종료</span>' : ''}
+      ${isCurrent ? '<span class="ts-status-badge ts-now">현재</span>' : ''}
+    </button>`;
+  }).join('');
 }
 
 function selectTimeSlot(idx) {
+  const nowTime = new Date().toTimeString().slice(0, 5);
+  if (TIME_SLOTS[idx].end <= nowTime) return; // 종료된 시간대 선택 불가
   if (selectedSlots.has(idx)) selectedSlots.delete(idx);
   else selectedSlots.add(idx);
   selectedSeatId = null;
@@ -470,8 +563,12 @@ function initReservePage() {
   todayStr        = toDateStr(new Date());
   viewDateStr     = todayStr;
   weekOffset      = 0;
-  selectedSlots  = new Set([0]);
-  selectedSeatId = null;
+  selectedSeatId  = null;
+
+  // 현재 시간 기준으로 가능한 첫 번째 시간대 자동 선택
+  const nowTime = new Date().toTimeString().slice(0, 5);
+  const firstAvailable = TIME_SLOTS.findIndex(s => s.end > nowTime);
+  selectedSlots = new Set(firstAvailable >= 0 ? [firstAvailable] : []);
 
   // 학번 30600 이상이면 4층 기본, 미만이면 3층 기본
   const uid = parseInt(currentUser?.userId);
@@ -489,6 +586,17 @@ function initReservePage() {
 
   document.getElementById('reserveActions').style.display = 'block';
   document.getElementById('viewOnlyNotice').style.display = 'none';
+
+  // 관리자 학생 섹션
+  const adminSection = document.getElementById('adminStudentSection');
+  if (adminSection) {
+    adminSection.style.display = currentUser?.isAdmin ? 'block' : 'none';
+    if (currentUser?.isAdmin) {
+      adminTarget = null;
+      document.getElementById('adminStudentId').value = '';
+      document.getElementById('adminStudentStatus').innerHTML = '';
+    }
+  }
 }
 
 function selectSeatType(btn) {
@@ -519,11 +627,12 @@ function renderMemberFields() {
       const isMe       = i === 0;
       const isRequired = i < cfg.minPeople;
       const suffix     = isMe ? ' (나)' : isRequired ? '' : ' (선택)';
+      const meUserId   = (currentUser?.isAdmin && adminTarget) ? adminTarget.userId : currentUser?.userId;
       return `<div class="member-id-row">
         <span class="member-label">멤버 ${i + 1}${suffix}</span>
         <input type="number" class="member-id-input" id="memberId-${i}"
           placeholder="${isRequired ? '학번 입력' : '학번 입력 (선택)'}"
-          ${isMe && currentUser ? `value="${currentUser.userId}" readonly` : ''} />
+          ${isMe && meUserId ? `value="${meUserId}" readonly` : ''} />
       </div>`;
     }).join('')}
   </div>`;
@@ -539,12 +648,11 @@ async function renderSeatMap() {
   const guide = document.getElementById('seatSelectGuide');
 
   if (selectedSlots.size === 0) {
-    guide.textContent = '시간대를 선택하세요. (여러 개 동시 선택 가능)';
+    guide.textContent = '시간대를 선택하면 예약 가능 여부가 표시됩니다.';
     guide.style.display = 'block';
-    map.innerHTML = ''; map.className = 'seat-map';
-    return;
+  } else {
+    guide.style.display = 'none';
   }
-  guide.style.display = 'none';
 
   // allReservedMap: 해당 날짜의 모든 예약 (시간 무관, 항상 표시)
   // conflictSeatIds: 선택된 시간대와 겹치는 좌석 (예약 불가)
@@ -552,12 +660,15 @@ async function renderSeatMap() {
   let conflictSeatIds = new Set();
   try {
     const all = await fetchReservations();
+    const nowTime = new Date().toTimeString().slice(0, 5);
     all.forEach(r => {
       if (!r.cancelled && r.date === viewDateStr) {
         const matchedSlot = TIME_SLOTS.find(s => s.start === r.startTime && s.end === r.endTime);
         if (!matchedSlot) return;
+        // 오늘 날짜에서 이미 종료된 시간대는 표시 안함
+        if (r.date === todayStr && matchedSlot.end <= nowTime) return;
         if (!allReservedMap[r.seatId]) allReservedMap[r.seatId] = [];
-        allReservedMap[r.seatId].push({ userId: r.userId, memberIds: r.memberIds || [], slotLabel: matchedSlot.short });
+        allReservedMap[r.seatId].push({ userId: r.userId, name: r.name, memberIds: r.memberIds || [], slotLabel: matchedSlot.short });
         const inSelected = [...selectedSlots].some(i =>
           TIME_SLOTS[i].start === r.startTime && TIME_SLOTS[i].end === r.endTime
         );
@@ -577,22 +688,25 @@ async function renderSeatMap() {
     const type  = parts[1];   // 'single' | 'triple' | 'quad'
     const num   = parts[2];   // '1', '2', ...
     const cfg   = SEAT_CONFIG[type];
-    const isActive    = type === selectedSeatType;
-    const slots       = allReservedMap[seatId] || [];
-    const hasAny      = slots.length > 0;
-    const isConflict  = conflictSeatIds.has(seatId);
-    const isSelected  = seatId === selectedSeatId;
-    const isTable     = type !== 'single';
+    const ALLOWED_SINGLES = new Set([1, 2, 3, 4, 9, 10, 11, 12]);
+    const isActive      = type === selectedSeatType;
+    const slots         = allReservedMap[seatId] || [];
+    const hasAny        = slots.length > 0;
+    const isConflict    = conflictSeatIds.has(seatId);
+    const isSelected    = seatId === selectedSeatId;
+    const isTable       = type !== 'single';
+    const isUnavailable = type !== 'single' || !ALLOWED_SINGLES.has(parseInt(num));
 
     let cls = 'seat-btn';
-    if (isTable)            cls += ' table-seat';
-    if (!isActive)          cls += ' other-type';
-    else if (isConflict)    cls += ' reserved';
-    else if (hasAny)        cls += ' reserved-other';
-    else if (isSelected)    cls += ' selected';
-    else                    cls += ' available';
+    if (isTable)             cls += ' table-seat';
+    if (!isActive)           cls += ' other-type';
+    else if (isUnavailable)  cls += ' seat-unavailable';
+    else if (isConflict)     cls += ' reserved';
+    else if (hasAny)         cls += ' reserved-other';
+    else if (isSelected)     cls += ' selected';
+    else                     cls += ' available';
 
-    const clickable = isActive && !isConflict && isToday;
+    const clickable = isActive && !isConflict && isToday && !isUnavailable;
 
     let inner;
     if (hasAny) {
@@ -615,12 +729,9 @@ async function renderSeatMap() {
   const f   = selectedFloor + 'f';
   let html  = '';
 
-  // 그리드: 12열 (1-3: 단체석 영역, 4: 간격, 5-12: 개인석 영역), 5행 (1-2: 상단, 3: 간격, 4-5: 하단)
+  // 그리드: 14열 (1-3: 단체석, 4: 간격, 5-12: 개인석, 13: 간격, 14: 3인석), 5행
   const seats = [
-    // ── 왼쪽 상단: QUAD-1 (가로형 단체석) ──
     { id: `${f}-quad-1`,    col: '1/4',   row: '1/3' },
-
-    // ── 오른쪽 상단: 1인석 8개 한 줄 ──
     { id: `${f}-single-1`,  col: 5,       row: 1 },
     { id: `${f}-single-2`,  col: 6,       row: 1 },
     { id: `${f}-single-3`,  col: 7,       row: 1 },
@@ -629,16 +740,12 @@ async function renderSeatMap() {
     { id: `${f}-single-6`,  col: 10,      row: 1 },
     { id: `${f}-single-7`,  col: 11,      row: 1 },
     { id: `${f}-single-8`,  col: 12,      row: 1 },
-
-    // ── 왼쪽 하단: QUAD-2 (가로형 단체석) ──
     { id: `${f}-quad-2`,    col: '1/4',   row: '4/6' },
-
-    // ── 오른쪽 하단: 복합 배치 ──
     { id: `${f}-single-9`,  col: 5,       row: 4 },
     { id: `${f}-single-10`, col: 5,       row: 5 },
     { id: `${f}-single-11`, col: 8,       row: 4 },
-    { id: `${f}-single-13`, col: 8,       row: 5 },
-    { id: `${f}-single-12`, col: 9,       row: 4 },
+    { id: `${f}-single-12`, col: 8,       row: 5 },
+    { id: `${f}-single-13`, col: 9,       row: 4 },
     { id: `${f}-single-14`, col: 9,       row: 5 },
     { id: `${f}-single-15`, col: 12,      row: 4 },
     { id: `${f}-single-16`, col: 12,      row: 5 },
@@ -687,6 +794,7 @@ function selectSeat(id) {
 
 function goToSeatSelect() {
   if (!currentUser) { alert('로그인이 필요합니다.'); return; }
+  if (currentUser.isAdmin && !adminTarget) { alert('예약할 학생 학번을 먼저 조회해주세요.'); return; }
   if (selectedSlots.size === 0) { alert('시간대를 선택해주세요.'); return; }
 
   if (selectedSeatType !== 'single') {
@@ -723,7 +831,11 @@ function collectMemberIds() {
 async function confirmReservation() {
   if (!selectedSeatId)      { alert('좌석을 선택해주세요.'); return; }
   if (!currentUser)         { alert('로그인이 필요합니다.'); return; }
+  if (currentUser.isAdmin && !adminTarget) { alert('예약할 학생 학번을 조회해주세요.'); return; }
   if (selectedSlots.size === 0) { alert('시간대를 선택해주세요.'); return; }
+
+  const reserveUserId = (currentUser.isAdmin && adminTarget) ? adminTarget.userId : currentUser.userId;
+  const reserveName   = (currentUser.isAdmin && adminTarget) ? adminTarget.name   : currentUser.name;
 
   const cfg       = SEAT_CONFIG[selectedSeatType];
   const seatParts = selectedSeatId.split('-');
@@ -745,7 +857,7 @@ async function confirmReservation() {
       const res  = await fetch('/api/reservations', {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({
-          userId: currentUser.userId, name: currentUser.name,
+          userId: reserveUserId, name: reserveName,
           date: viewDateStr, startTime: slot.start, endTime: slot.end,
           seatType: selectedSeatType, seatTypeLabel: cfg.label,
           seatId: selectedSeatId, seatLabel: `${selectedFloor}층 ${seatNum}번`,
@@ -778,7 +890,7 @@ async function confirmReservation() {
     ? `<br/><span style="color:var(--danger)">⚠️ 중복으로 실패: ${fail.map(r => r.slot.label).join(', ')}</span>` : '';
 
   document.getElementById('modalContent').innerHTML = `
-    <strong>예약자</strong> ${currentUser.name} (${currentUser.userId})<br/>
+    <strong>예약자</strong> ${reserveName} (${reserveUserId})<br/>
     <strong>날짜</strong> ${formatDate(viewDateStr)}<br/>
     <strong>시간</strong> ${ok.map(r => r.slot.label).join(', ')}<br/>
     <strong>좌석</strong> ${selectedFloor}층 ${cfg.label} ${seatNum}번${peopleText}${failText}
@@ -789,7 +901,17 @@ async function confirmReservation() {
   renderSeatMap();
 }
 
-function closeModal() { document.getElementById('modal').style.display = 'none'; }
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+  if (currentUser?.isAdmin) {
+    adminTarget = null;
+    const input  = document.getElementById('adminStudentId');
+    const status = document.getElementById('adminStudentStatus');
+    if (input)  input.value = '';
+    if (status) status.innerHTML = '';
+    if (selectedSeatType !== 'single') renderMemberFields();
+  }
+}
 
 // ─────────────────────────────────────────────
 //  내 예약
@@ -904,6 +1026,177 @@ async function loadRanking() {
 }
 
 // ─────────────────────────────────────────────
+//  관리자: 전체 예약 기록
+// ─────────────────────────────────────────────
+
+let _historyData = [];
+
+function openHistoryAuth() {
+  document.getElementById('historyAuthPw').value = '';
+  document.getElementById('historyAuthModal').style.display = 'flex';
+}
+function closeHistoryAuth() {
+  document.getElementById('historyAuthModal').style.display = 'none';
+}
+
+async function doHistoryAuth() {
+  const pw = document.getElementById('historyAuthPw').value;
+  if (!pw) { alert('비밀번호를 입력해주세요.'); return; }
+  try {
+    const res = await fetch('/api/verify-password', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ userId: 'admin', password: pw }),
+    });
+    if (!res.ok) { alert('비밀번호가 올바르지 않습니다.'); return; }
+    closeHistoryAuth();
+    document.getElementById('historySearchId').value = '';
+    document.getElementById('historyModal').style.display = 'flex';
+    await loadAdminHistory();
+  } catch(e) { alert('서버에 연결할 수 없습니다.'); }
+}
+
+function closeHistoryModal() {
+  document.getElementById('historyModal').style.display = 'none';
+}
+
+async function loadAdminHistory() {
+  const content = document.getElementById('historyContent');
+  content.innerHTML = '<p style="text-align:center;color:var(--gray-500);padding:20px">로딩 중...</p>';
+  try {
+    _historyData = (await fetchReservations(true))
+      .sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime));
+    renderHistoryList(_historyData);
+  } catch(e) {
+    content.innerHTML = '<p style="text-align:center;color:var(--danger);padding:20px">불러오기 실패</p>';
+  }
+}
+
+function filterHistory() {
+  const q = document.getElementById('historySearchId').value.trim();
+  const filtered = q ? _historyData.filter(r => r.userId.includes(q) || (r.memberIds||[]).some(id => id.includes(q))) : _historyData;
+  renderHistoryList(filtered);
+}
+
+function renderHistoryList(list) {
+  const content = document.getElementById('historyContent');
+  if (list.length === 0) {
+    content.innerHTML = '<p style="text-align:center;color:var(--gray-500);padding:20px">예약 기록이 없습니다.</p>';
+    return;
+  }
+  content.innerHTML = `
+    <div style="font-size:0.82rem;color:var(--gray-500);margin-bottom:10px">총 ${list.length}건</div>
+    <div class="reservation-list">
+      ${list.map(r => {
+        const slot    = TIME_SLOTS.find(s => s.start === r.startTime);
+        const slotLabel = slot ? `${slot.label} (${slot.range})` : r.startTime;
+        const members = r.memberIds && r.memberIds.length > 1 ? `<span>👥 ${r.memberIds.join(', ')}</span>` : '';
+
+        // 상태 판별: 취소 / 이용완료(세션 끝까지 유지) / 예정
+        const now = new Date();
+        const nowStr = now.toISOString().slice(0, 10);
+        const nowTime = now.toTimeString().slice(0, 5);
+        const sessionEnded = r.date < nowStr || (r.date === nowStr && slot && slot.end <= nowTime);
+        let badgeClass, badgeText, cardOpacity;
+        if (r.cancelled) {
+          badgeClass = 'past'; badgeText = '취소'; cardOpacity = 'opacity:0.45';
+        } else if (sessionEnded) {
+          badgeClass = 'completed'; badgeText = '이용완료'; cardOpacity = '';
+        } else {
+          badgeClass = 'upcoming'; badgeText = '예정'; cardOpacity = '';
+        }
+
+        return `<div class="res-card" style="${cardOpacity}">
+          <div class="res-info">
+            <h4>${SEAT_CONFIG[r.seatType]?.icon || ''} ${r.seatTypeLabel} ${r.seatLabel}</h4>
+            <div class="res-meta">
+              <span>📅 ${formatDate(r.date)}</span>
+              <span>🕐 ${slotLabel}</span>
+              <span>👤 ${r.name} (${r.userId})</span>
+              ${members}
+            </div>
+          </div>
+          <div class="res-actions">
+            <span class="res-badge ${badgeClass}">${badgeText}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ─────────────────────────────────────────────
+//  관리자: 학생 조회 & 즉시 등록
+// ─────────────────────────────────────────────
+
+function onAdminStudentIdChange() {
+  clearTimeout(adminStudentLookupTimer);
+  adminStudentLookupTimer = setTimeout(lookupAdminStudent, 600);
+}
+
+async function lookupAdminStudent() {
+  const input    = document.getElementById('adminStudentId');
+  const statusEl = document.getElementById('adminStudentStatus');
+  const id       = input?.value?.trim();
+  adminTarget    = null;
+
+  if (!id || id.length < 4) { if (statusEl) statusEl.innerHTML = ''; return; }
+
+  statusEl.innerHTML = '<span style="color:var(--gray-400)">조회 중...</span>';
+
+  try {
+    const res  = await fetch(`/api/lookup-user/${id}`);
+    const data = await res.json();
+    if (res.ok) {
+      adminTarget = { userId: id, name: data.name };
+      statusEl.innerHTML = `<span style="color:var(--success)">✓ ${data.name} (${id})</span>`;
+      if (selectedSeatType !== 'single') renderMemberFields();
+    } else {
+      statusEl.innerHTML = `<span style="color:var(--danger)">미가입 학번</span>
+        <button onclick="openQuickRegModal('${id}')"
+          style="background:none;border:none;color:var(--primary);cursor:pointer;text-decoration:underline;font-size:0.85rem;margin-left:6px">즉시 등록</button>`;
+    }
+  } catch(e) {
+    statusEl.innerHTML = '<span style="color:var(--danger)">조회 실패</span>';
+  }
+}
+
+function openQuickRegModal(id) {
+  quickRegTargetId = id;
+  document.getElementById('quickRegUserId').textContent = id;
+  document.getElementById('quickRegName').value = '';
+  document.getElementById('quickRegPw').value = '';
+  document.getElementById('quickRegPwConfirm').value = '';
+  document.getElementById('quickRegModal').style.display = 'flex';
+}
+
+function closeQuickRegModal() {
+  document.getElementById('quickRegModal').style.display = 'none';
+}
+
+async function doQuickRegister() {
+  const name = document.getElementById('quickRegName').value.trim();
+  const pw   = document.getElementById('quickRegPw').value;
+  const pwCf = document.getElementById('quickRegPwConfirm').value;
+  if (!name)         { alert('이름을 입력해주세요.'); return; }
+  if (pw.length < 4) { alert('비밀번호는 4자 이상 입력해주세요.'); return; }
+  if (pw !== pwCf)   { alert('비밀번호가 일치하지 않습니다.'); return; }
+
+  try {
+    const res  = await fetch('/api/quick-register', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ userId: quickRegTargetId, name, password: pw }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error); return; }
+
+    adminTarget = { userId: data.userId, name: data.name };
+    document.getElementById('adminStudentStatus').innerHTML =
+      `<span style="color:var(--success)">✓ ${data.name} (${data.userId}) <small style="color:var(--gray-500)">신규 등록됨</small></span>`;
+    closeQuickRegModal();
+    if (selectedSeatType !== 'single') renderMemberFields();
+  } catch(e) { alert('서버에 연결할 수 없습니다.'); }
+}
+
+// ─────────────────────────────────────────────
 //  유틸
 // ─────────────────────────────────────────────
 
@@ -920,6 +1213,8 @@ loadSession();
 updateUserInfo();
 if (!currentUser) {
   document.getElementById('loginModal').style.display = 'flex';
+} else if (currentUser.isAdmin) {
+  showPage('reserve');
 } else {
   loadHomeDashboard();
 }

@@ -48,18 +48,18 @@ app.post('/api/login', async (req, res) => {
   try {
     const { userId, password } = req.body;
     const id = String(userId).trim();
-    if (!id || isNaN(parseInt(id)))
+    if (!id || (id !== 'admin' && isNaN(parseInt(id))))
       return res.status(400).json({ error: '학번을 올바르게 입력해주세요.' });
 
     const users = await readUsers();
     if (!users[id]) {
       if (password !== '0000')
         return res.status(401).json({ error: '비밀번호가 올바르지 않습니다.' });
-      return res.json({ userId: id, isFirstLogin: true, name: '' });
+      return res.json({ userId: id, isFirstLogin: true, name: '', isAdmin: id === 'admin' });
     }
     if (users[id].password !== password)
       return res.status(401).json({ error: '비밀번호가 올바르지 않습니다.' });
-    return res.json({ userId: id, isFirstLogin: false, name: users[id].name });
+    return res.json({ userId: id, isFirstLogin: false, name: users[id].name, isAdmin: !!users[id].isAdmin });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: '서버 오류' });
@@ -81,9 +81,11 @@ app.post('/api/setup-profile', async (req, res) => {
     if (currentPassword !== expected)
       return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다.' });
 
-    users[id] = { password: newPassword, name: name.trim() };
+    const existing = users[id] || {};
+    users[id] = { ...existing, password: newPassword, name: name.trim() };
+    if (id === 'admin') users[id].isAdmin = true;
     await writeUsers(users);
-    return res.json({ userId: id, name: name.trim() });
+    return res.json({ userId: id, name: name.trim(), isAdmin: !!users[id].isAdmin });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: '서버 오류' });
@@ -109,6 +111,51 @@ app.post('/api/change-profile', async (req, res) => {
     if (newPassword) users[id].password = newPassword;
     await writeUsers(users);
     return res.json({ userId: id, name: users[id].name });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: '서버 오류' });
+  }
+});
+
+// ── 비밀번호 확인 ──
+app.post('/api/verify-password', async (req, res) => {
+  try {
+    const { userId, password } = req.body;
+    const users = await readUsers();
+    if (!users[userId] || users[userId].password !== password)
+      return res.status(401).json({ error: '비밀번호가 올바르지 않습니다.' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: '서버 오류' });
+  }
+});
+
+// ── 학생 조회 ──
+app.get('/api/lookup-user/:id', async (req, res) => {
+  try {
+    const id = String(req.params.id).trim();
+    const users = await readUsers();
+    if (!users[id] || users[id].isAdmin) return res.status(404).json({ error: '미가입 학번' });
+    res.json({ userId: id, name: users[id].name });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: '서버 오류' });
+  }
+});
+
+// ── 즉시 등록 ──
+app.post('/api/quick-register', async (req, res) => {
+  try {
+    const { userId, name, password } = req.body;
+    const id = String(userId).trim();
+    if (!id || isNaN(parseInt(id))) return res.status(400).json({ error: '올바른 학번을 입력해주세요.' });
+    if (!name || !name.trim()) return res.status(400).json({ error: '이름을 입력해주세요.' });
+    if (!password || password.length < 4) return res.status(400).json({ error: '비밀번호는 4자 이상이어야 합니다.' });
+    const users = await readUsers();
+    if (users[id]) return res.status(409).json({ error: '이미 가입된 학번입니다.' });
+    users[id] = { password, name: name.trim() };
+    await writeUsers(users);
+    res.json({ userId: id, name: name.trim() });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: '서버 오류' });
